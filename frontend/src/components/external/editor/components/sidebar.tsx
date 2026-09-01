@@ -1,20 +1,16 @@
-import React, {ReactNode} from 'react';
-import styled from "@emotion/styled";
+"use client";
 
-export const Sidebar = ({children}: { children: ReactNode }) => {
+import React, { ReactNode } from "react";
+
+export const Sidebar = ({ children }: { children: ReactNode }) => {
   return (
-    <Aside>
+    <aside className="w-64 h-full min-h-screen border-r border-slate-800 bg-[#161b22] overflow-y-auto pt-2 select-none text-slate-300">
+      <div className="px-4 py-1 text-[11px] font-bold tracking-wider uppercase text-slate-500 mb-2">
+        Explorer
+      </div>
       {children}
-    </Aside>
-  )
-}
+    </aside>
+  );
+};
 
-const Aside = styled.aside`
-  width: 250px;
-  height: 100vh;
-  border-right: 2px solid;
-  border-color: #242424;
-  padding-top: 3px;
-`
-
-export default Sidebar
+export default Sidebar;
