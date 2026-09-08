@@ -63,10 +63,11 @@ function WorkspaceInner() {
     if (!podCreated || !replId) return;
 
     // Connect to runner via Ingress domain or fallback
-    const wsUrl = process.env.NEXT_PUBLIC_RUNNER_WS_URL || `ws://${replId}.peetcode.com`;
+    const clusterHost = process.env.NEXT_PUBLIC_CLUSTER_HOST || "52.90.6.151.nip.io:31516";
+    const wsUrl = process.env.NEXT_PUBLIC_RUNNER_WS_URL || `http://${replId}.${clusterHost}`;
     const newSocket = io(wsUrl, {
-      transports: ["websocket"],
-      reconnectionAttempts: 5,
+      transports: ["websocket", "polling"],
+      reconnectionAttempts: 10,
     });
 
     setSocket(newSocket);

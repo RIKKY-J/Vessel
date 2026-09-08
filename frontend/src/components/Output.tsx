@@ -9,7 +9,8 @@ interface OutputProps {
 
 export default function Output({ replId }: OutputProps) {
   const [iframeKey, setIframeKey] = useState(0);
-  const instanceUri = `http://${replId}.autogpt-cloud.com`;
+  const clusterHost = process.env.NEXT_PUBLIC_CLUSTER_HOST || "52.90.6.151.nip.io:31516";
+  const instanceUri = `http://${replId}-app.${clusterHost}`;
 
   const refreshIframe = () => {
     setIframeKey((prev) => prev + 1);

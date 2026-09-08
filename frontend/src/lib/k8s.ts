@@ -75,9 +75,33 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: service_name
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/websocket-services: "service_name"
 spec:
   ingressClassName: nginx
   rules:
+  - host: service_name.{{CLUSTER_DOMAIN}}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: service_name
+            port:
+              number: 3001
+  - host: service_name-app.{{CLUSTER_DOMAIN}}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: service_name
+            port:
+              number: 3000
   - host: service_name.peetcode.com
     http:
       paths:
@@ -149,12 +173,14 @@ export function parseKubeManifests(replId: string): Array<any> {
   const s3Bucket = process.env.S3_BUCKET || "repl";
   const awsKey = process.env.AWS_ACCESS_KEY_ID || "your_aws_key_id";
   const awsSecret = process.env.AWS_SECRET_ACCESS_KEY || "your_aws_secret";
+  const clusterDomain = process.env.CLUSTER_DOMAIN || process.env.NEXT_PUBLIC_CLUSTER_DOMAIN || "52.90.6.151.nip.io";
 
   let hydrated = SERVICE_YAML_TEMPLATE
     .replace(/service_name/g, replId)
     .replace(/{{S3_BUCKET}}/g, s3Bucket)
     .replace(/{{AWS_ACCESS_KEY_ID}}/g, awsKey)
-    .replace(/{{AWS_SECRET_ACCESS_KEY}}/g, awsSecret);
+    .replace(/{{AWS_SECRET_ACCESS_KEY}}/g, awsSecret)
+    .replace(/{{CLUSTER_DOMAIN}}/g, clusterDomain);
 
   const docs = yaml.parseAllDocuments(hydrated).map((doc) => doc.toJSON());
   return docs;
