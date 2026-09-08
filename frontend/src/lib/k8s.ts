@@ -39,7 +39,7 @@ spec:
               mountPath: /workspace
       containers:
         - name: runner
-          image: 100xdevs/runner:latest
+          image: rikkyj/runner:latest
           ports:
             - containerPort: 3001
             - containerPort: 3000
@@ -102,11 +102,42 @@ spec:
 
 export function getKubeClients() {
   const kubeconfig = new KubeConfig();
-  try {
-    kubeconfig.loadFromDefault();
-  } catch (err) {
-    console.warn("Could not load default kubeconfig:", err);
+
+  if (process.env.KUBERNETES_SERVICE_HOST && process.env.KUBERNETES_SERVICE_TOKEN) {
+    // Cloud / Vercel Serverless mode: Authenticate using ServiceAccount token
+    kubeconfig.loadFromOptions({
+      clusters: [
+        {
+          name: "eks-cluster",
+          server: process.env.KUBERNETES_SERVICE_HOST,
+          caData: process.env.KUBERNETES_CA_DATA,
+          skipTLSVerify: !process.env.KUBERNETES_CA_DATA,
+        },
+      ],
+      users: [
+        {
+          name: "vercel-orchestrator",
+          token: process.env.KUBERNETES_SERVICE_TOKEN,
+        },
+      ],
+      contexts: [
+        {
+          name: "eks-context",
+          cluster: "eks-cluster",
+          user: "vercel-orchestrator",
+        },
+      ],
+      currentContext: "eks-context",
+    });
+  } else {
+    // Local development mode: Authenticate using ~/.kube/config
+    try {
+      kubeconfig.loadFromDefault();
+    } catch (err) {
+      console.warn("Could not load default kubeconfig:", err);
+    }
   }
+
   const coreV1Api = kubeconfig.makeApiClient(CoreV1Api);
   const appsV1Api = kubeconfig.makeApiClient(AppsV1Api);
   const networkingV1Api = kubeconfig.makeApiClient(NetworkingV1Api);
