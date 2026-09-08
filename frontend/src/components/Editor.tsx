@@ -12,11 +12,17 @@ export const Editor = ({
   onSelect,
   selectedFile,
   socket,
+  onCreateFile,
+  onCreateFolder,
+  onRefresh,
 }: {
   files: RemoteFile[];
   onSelect: (file: File) => void;
   selectedFile: File | undefined;
   socket: Socket | null;
+  onCreateFile?: (name: string) => void;
+  onCreateFolder?: (name: string) => void;
+  onRefresh?: () => void;
 }) => {
   const rootDir = useMemo(() => {
     return buildFileTree(files);
@@ -28,9 +34,16 @@ export const Editor = ({
     }
   }, [selectedFile, rootDir, onSelect]);
 
+  const isEmpty = rootDir.files.length === 0 && rootDir.dirs.length === 0;
+
   return (
     <div className="flex h-full w-full overflow-hidden bg-[#0d1117]">
-      <Sidebar>
+      <Sidebar
+        onCreateFile={onCreateFile}
+        onCreateFolder={onCreateFolder}
+        onRefresh={onRefresh}
+        isEmpty={isEmpty}
+      >
         <FileTree
           rootDir={rootDir}
           selectedFile={selectedFile}

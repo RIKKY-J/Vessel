@@ -105,6 +105,63 @@ function WorkspaceInner() {
     }
   };
 
+  const handleCreateFile = (filename: string) => {
+    let cleanPath = filename.trim().replace(/\\/g, "/");
+    if (!cleanPath.startsWith("/")) cleanPath = `/${cleanPath}`;
+
+    const fileName = cleanPath.split("/").pop() || cleanPath;
+    const newRemoteFile: RemoteFile = {
+      type: "file",
+      name: fileName,
+      path: cleanPath,
+    };
+
+    setFileStructure((prev) => {
+      if (prev.some((f) => f.path === cleanPath)) return prev;
+      return [...prev, newRemoteFile];
+    });
+
+    socket?.emit("updateContent", { path: cleanPath, content: "" });
+
+    const newFileObj: File = {
+      id: cleanPath,
+      name: fileName,
+      path: cleanPath,
+      parentId: cleanPath.split("/").length === 2 ? "0" : undefined,
+      type: Type.FILE,
+      depth: Math.max(0, cleanPath.split("/").length - 2),
+      content: "",
+    };
+    setSelectedFile(newFileObj);
+  };
+
+  const handleCreateFolder = (foldername: string) => {
+    let cleanPath = foldername.trim().replace(/\\/g, "/");
+    if (!cleanPath.startsWith("/")) cleanPath = `/${cleanPath}`;
+
+    const folderName = cleanPath.split("/").pop() || cleanPath;
+    const newRemoteDir: RemoteFile = {
+      type: "dir",
+      name: folderName,
+      path: cleanPath,
+    };
+
+    setFileStructure((prev) => {
+      if (prev.some((f) => f.path === cleanPath)) return prev;
+      return [...prev, newRemoteDir];
+    });
+
+    socket?.emit("createFolder", { path: cleanPath });
+  };
+
+  const handleRefresh = () => {
+    socket?.emit("fetchDir", "", (data: RemoteFile[]) => {
+      if (data && Array.isArray(data)) {
+        setFileStructure(data);
+      }
+    });
+  };
+
   if (!replId) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#0d1117] text-slate-300 p-4">
@@ -186,6 +243,9 @@ function WorkspaceInner() {
             onSelect={onSelect}
             selectedFile={selectedFile}
             socket={socket}
+            onCreateFile={handleCreateFile}
+            onCreateFolder={handleCreateFolder}
+            onRefresh={handleRefresh}
           />
         </section>
 
