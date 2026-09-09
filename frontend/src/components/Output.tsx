@@ -10,7 +10,9 @@ interface OutputProps {
 export default function Output({ replId }: OutputProps) {
   const [iframeKey, setIframeKey] = useState(0);
   const clusterHost = process.env.NEXT_PUBLIC_CLUSTER_HOST || "52.90.6.151.nip.io:31516";
-  const instanceUri = `http://${replId}-app.${clusterHost}`;
+  // Use https:// on Vercel/production to avoid mixed content blocking
+  const isSecure = typeof window !== "undefined" && window.location.protocol === "https:";
+  const instanceUri = `${isSecure ? "https" : "http"}://${replId}-app.${clusterHost}`;
 
   const refreshIframe = () => {
     setIframeKey((prev) => prev + 1);

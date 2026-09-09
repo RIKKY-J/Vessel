@@ -77,7 +77,11 @@ function WorkspaceInner() {
   useEffect(() => {
     if (!podCreated || !replId) return;
     const clusterHost = process.env.NEXT_PUBLIC_CLUSTER_HOST || "52.90.6.151.nip.io:31516";
-    const wsUrl = process.env.NEXT_PUBLIC_RUNNER_WS_URL || `http://${replId}.${clusterHost}`;
+    // Auto-detect protocol: wss:// on HTTPS (Vercel/prod), http:// for local dev
+    // This prevents browser Mixed Content blocking when deployed to Vercel
+    const isSecure = typeof window !== "undefined" && window.location.protocol === "https:";
+    const wsProtocol = isSecure ? "wss" : "http";
+    const wsUrl = process.env.NEXT_PUBLIC_RUNNER_WS_URL || `${wsProtocol}://${replId}.${clusterHost}`;
     const newSocket = io(wsUrl, {
       transports: ["websocket", "polling"],
       reconnectionAttempts: 10,
@@ -375,3 +379,4 @@ export default function CodingPage() {
     </Suspense>
   );
 }
+
