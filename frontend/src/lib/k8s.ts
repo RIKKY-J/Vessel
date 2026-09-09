@@ -48,8 +48,8 @@ spec:
               mountPath: /workspace
           resources:
             requests:
-              cpu: "1"
-              memory: "1Gi"
+              cpu: "500m"
+              memory: "512Mi"
             limits:
               cpu: "1"
               memory: "1Gi"
@@ -187,3 +187,4 @@ export function parseKubeManifests(replId: string): Array<any> {
   const docs = yaml.parseAllDocuments(hydrated).map((doc) => doc.toJSON());
   return docs;
 }
+
