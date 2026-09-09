@@ -23,7 +23,7 @@ function decodeTerminalData(buf: any): string {
       return textDecoder.decode(new Uint8Array(buf));
     }
   } catch (err) {
-    console.warn("Decode error:", err);
+    console.warn("[Terminal] Decode error:", err);
   }
   return String.fromCharCode.apply(null, Array.from(new Uint8Array(buf)));
 }
@@ -31,10 +31,20 @@ function decodeTerminalData(buf: any): string {
 export default function TerminalComponent({ socket }: TerminalProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const termInstanceRef = useRef<Terminal | null>(null);
+  const ptyRequestedRef = useRef(false);
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    if (!terminalRef.current || !socket) return;
+    if (!terminalRef.current || !socket) {
+      console.log("[Terminal] Missing ref or socket:", {
+        hasRef: !!terminalRef.current,
+        hasSocket: !!socket,
+      });
+      return;
+    }
+
+    console.log("[Terminal] Initializing xterm + socket listeners");
+    ptyRequestedRef.current = false;
 
     const term = new Terminal({
       cursorBlink: true,
@@ -58,21 +68,37 @@ export default function TerminalComponent({ socket }: TerminalProps) {
     termInstanceRef.current = term;
 
     const requestPty = () => {
+      if (ptyRequestedRef.current) {
+        console.log("[Terminal] PTY already requested, skipping duplicate");
+        return;
+      }
+      ptyRequestedRef.current = true;
       setIsConnected(true);
+      console.log("[Terminal] Emitting requestTerminal");
       socket.emit("requestTerminal");
-      socket.emit("terminalData", { data: "\n" });
+      // Send a newline to trigger initial prompt
+      setTimeout(() => {
+        console.log("[Terminal] Sending initial newline");
+        socket.emit("terminalData", { data: "\n" });
+      }, 500);
     };
 
     if (socket.connected) {
+      console.log("[Terminal] Socket already connected, requesting PTY");
       requestPty();
+    } else {
+      console.log("[Terminal] Socket not yet connected, waiting...");
     }
 
     const onConnect = () => {
+      console.log("[Terminal] Socket connected event fired, transport:", socket.io?.engine?.transport?.name);
       requestPty();
     };
 
-    const onDisconnect = () => {
+    const onDisconnect = (reason: string) => {
+      console.log("[Terminal] Socket disconnected:", reason);
       setIsConnected(false);
+      ptyRequestedRef.current = false;
     };
 
     socket.on("connect", onConnect);
@@ -80,12 +106,14 @@ export default function TerminalComponent({ socket }: TerminalProps) {
 
     const terminalHandler = ({ data }: { data: any }) => {
       const decoded = decodeTerminalData(data);
+      console.log("[Terminal] Received terminal data:", decoded.length, "chars", JSON.stringify(decoded.substring(0, 80)));
       term.write(decoded);
     };
 
     socket.on("terminal", terminalHandler);
 
     const onDataDisposable = term.onData((data) => {
+      console.log("[Terminal] Sending keystroke:", JSON.stringify(data));
       socket.emit("terminalData", { data });
     });
 
@@ -97,13 +125,21 @@ export default function TerminalComponent({ socket }: TerminalProps) {
 
     window.addEventListener("resize", handleResize);
 
+    // Auto-focus terminal after a short delay
+    setTimeout(() => {
+      term.focus();
+      console.log("[Terminal] Auto-focused terminal");
+    }, 1000);
+
     return () => {
+      console.log("[Terminal] Cleaning up");
       window.removeEventListener("resize", handleResize);
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
       socket.off("terminal", terminalHandler);
       onDataDisposable.dispose();
       term.dispose();
+      ptyRequestedRef.current = false;
     };
   }, [socket]);
 

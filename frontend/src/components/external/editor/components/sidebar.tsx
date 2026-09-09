@@ -5,6 +5,7 @@ import { FilePlus, FolderPlus, RotateCw, Check, X, FileCode, Folder, FolderGit2 
 
 interface SidebarProps {
   children: ReactNode;
+  width?: number;
   onCreateFile?: (name: string) => void;
   onCreateFolder?: (name: string) => void;
   onRefresh?: () => void;
@@ -13,6 +14,7 @@ interface SidebarProps {
 
 export const Sidebar = ({
   children,
+  width,
   onCreateFile,
   onCreateFolder,
   onRefresh,
@@ -67,7 +69,10 @@ export const Sidebar = ({
   };
 
   return (
-    <aside className="w-64 h-full min-h-screen border-r border-slate-800 bg-[#161b22] overflow-y-auto select-none text-slate-300 flex flex-col">
+    <aside
+      style={width ? { width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` } : undefined}
+      className={`${width ? "" : "w-64"} h-full border-r border-slate-800 bg-[#161b22] overflow-y-auto select-none text-slate-300 flex flex-col shrink-0`}
+    >
       {/* Explorer Top Header Bar */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800/80 bg-[#0d1117]/60">
         <span className="text-[11px] font-bold tracking-wider uppercase text-slate-400">

@@ -1,5 +1,5 @@
 import { Server, Socket } from "socket.io";
-import { Server as HttpServer } from "http";
+import { Server as HttpServer } from "http";
 import { saveToS3 } from "./aws";
 import path from "path";
 import { fetchDir, fetchFileContent, saveFile } from "./fs";
@@ -19,16 +19,18 @@ export function initWs(httpServer: HttpServer) {
     io.on("connection", async (socket) => {
         // Auth checks should happen here
         const host = socket.handshake.headers.host;
-        console.log(`host is ${host}`);
+        console.log(`[WS] New connection: socket.id=${socket.id}, host=${host}, transport=${socket.conn.transport.name}`);
         // Split the host by '.' and take the first part as replId
         const replId = host?.split('.')[0];
     
         if (!replId) {
+            console.log("[WS] No replId found, disconnecting");
             socket.disconnect();
             terminalManager.clear(socket.id);
             return;
         }
 
+        console.log(`[WS] replId=${replId}, fetching /workspace`);
         socket.emit("loaded", {
             rootContent: await fetchDir("/workspace", "")
         });
@@ -40,7 +42,7 @@ export function initWs(httpServer: HttpServer) {
 function initHandlers(socket: Socket, replId: string) {
 
     socket.on("disconnect", () => {
-        console.log("user disconnected");
+        console.log(`[WS] User disconnected: socket.id=${socket.id}`);
     });
 
     socket.on("fetchDir", async (dir: string, callback) => {
@@ -65,14 +67,18 @@ function initHandlers(socket: Socket, replId: string) {
     });
 
     socket.on("requestTerminal", async () => {
+        console.log(`[WS] requestTerminal from socket.id=${socket.id}`);
         terminalManager.createPty(socket.id, replId, (data, id) => {
+            const buf = Buffer.from(data,"utf-8");
+            console.log(`[WS] Sending terminal data to client: ${buf.length} bytes, preview: ${JSON.stringify(data.substring(0, 80))}`);
             socket.emit('terminal', {
-                data: Buffer.from(data,"utf-8")
+                data: buf
             });
         });
     });
     
     socket.on("terminalData", async ({ data }: { data: string, terminalId: number }) => {
+        console.log(`[WS] Received terminalData from client: ${JSON.stringify(data)}`);
         terminalManager.write(socket.id, data);
     });
 
