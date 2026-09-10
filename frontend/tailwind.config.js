@@ -10,6 +10,12 @@ module.exports = {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        vessel: {
+          darkest: "#092328",
+          dark: "#12544F",
+          primary: "#2A835F",
+          sage: "#8BBB92",
+        },
       },
     },
   },

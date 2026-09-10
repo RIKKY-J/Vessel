@@ -5,8 +5,12 @@
 @import 'xterm/css/xterm.css';
 
 :root {
-  --background: #0d1117;
+  --background: #092328;
   --foreground: #e6edf3;
+  --vessel-darkest: #092328;
+  --vessel-dark: #12544F;
+  --vessel-primary: #2A835F;
+  --vessel-sage: #8BBB92;
 }
 
 body {
@@ -18,18 +22,23 @@ body {
   overflow-x: hidden;
 }
 
+::selection {
+  background: rgba(42, 131, 95, 0.45);
+  color: #ffffff;
+}
+
 /* Custom scrollbars */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #161b22;
+  background: #092328;
 }
 ::-webkit-scrollbar-thumb {
-  background: #30363d;
+  background: #12544F;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #484f58;
+  background: #2A835F;
 }

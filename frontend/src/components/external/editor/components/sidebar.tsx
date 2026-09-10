@@ -71,11 +71,11 @@ export const Sidebar = ({
   return (
     <aside
       style={width ? { width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` } : undefined}
-      className={`${width ? "" : "w-64"} h-full border-r border-slate-800 bg-[#161b22] overflow-y-auto select-none text-slate-300 flex flex-col shrink-0`}
+      className={`${width ? "" : "w-64"} h-full border-r border-[#12544F] bg-[#092328] overflow-y-auto select-none text-slate-300 flex flex-col shrink-0`}
     >
       {/* Explorer Top Header Bar */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800/80 bg-[#0d1117]/60">
-        <span className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-[#12544F] bg-[#12544F]/20">
+        <span className="text-[11px] font-bold tracking-wider uppercase text-[#8BBB92]">
           Explorer
         </span>
         <div className="flex items-center gap-1">
@@ -86,8 +86,8 @@ export const Sidebar = ({
               setNameInput("");
             }}
             title="New File"
-            className={`p-1 rounded transition text-slate-400 hover:text-white hover:bg-slate-800 ${
-              isCreatingFile ? "bg-blue-600/30 text-blue-300" : ""
+            className={`p-1 rounded transition text-slate-300 hover:text-white hover:bg-[#12544F]/50 cursor-pointer ${
+              isCreatingFile ? "bg-[#2A835F]/30 text-[#8BBB92]" : ""
             }`}
           >
             <FilePlus className="w-3.5 h-3.5" />
@@ -99,8 +99,8 @@ export const Sidebar = ({
               setNameInput("");
             }}
             title="New Folder"
-            className={`p-1 rounded transition text-slate-400 hover:text-white hover:bg-slate-800 ${
-              isCreatingFolder ? "bg-blue-600/30 text-blue-300" : ""
+            className={`p-1 rounded transition text-slate-300 hover:text-white hover:bg-[#12544F]/50 cursor-pointer ${
+              isCreatingFolder ? "bg-[#2A835F]/30 text-[#8BBB92]" : ""
             }`}
           >
             <FolderPlus className="w-3.5 h-3.5" />
@@ -108,20 +108,20 @@ export const Sidebar = ({
           <button
             onClick={triggerRefresh}
             title="Refresh Explorer"
-            className="p-1 rounded transition text-slate-400 hover:text-white hover:bg-slate-800"
+            className="p-1 rounded transition text-slate-300 hover:text-white hover:bg-[#12544F]/50 cursor-pointer"
           >
-            <RotateCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-blue-400" : ""}`} />
+            <RotateCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-[#8BBB92]" : ""}`} />
           </button>
         </div>
       </div>
 
       {/* Inline New File / Folder Input */}
       {(isCreatingFile || isCreatingFolder) && (
-        <div className="px-2 py-1.5 bg-[#0d1117] border-b border-slate-800 flex items-center gap-1.5 animate-fadeIn">
+        <div className="px-2 py-1.5 bg-[#12544F]/25 border-b border-[#12544F] flex items-center gap-1.5 animate-fadeIn">
           {isCreatingFile ? (
-            <FileCode className="w-4 h-4 text-blue-400 shrink-0 ml-1" />
+            <FileCode className="w-4 h-4 text-[#8BBB92] shrink-0 ml-1" />
           ) : (
-            <Folder className="w-4 h-4 text-amber-400 shrink-0 ml-1" />
+            <Folder className="w-4 h-4 text-[#8BBB92] shrink-0 ml-1" />
           )}
           <input
             ref={inputRef}
@@ -130,19 +130,19 @@ export const Sidebar = ({
             onChange={(e) => setNameInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={isCreatingFile ? "filename.js" : "folder-name"}
-            className="flex-1 bg-[#161b22] border border-blue-500/60 rounded px-1.5 py-0.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-400"
+            className="flex-1 bg-[#092328] border border-[#2A835F] rounded px-1.5 py-0.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-[#8BBB92]"
           />
           <button
             onClick={handleConfirm}
             title="Create"
-            className="p-1 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded"
+            className="p-1 text-[#8BBB92] hover:text-white hover:bg-[#2A835F]/20 rounded cursor-pointer"
           >
             <Check className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={handleCancel}
             title="Cancel"
-            className="p-1 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded"
+            className="p-1 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -155,14 +155,14 @@ export const Sidebar = ({
 
         {isEmpty && !isCreatingFile && !isCreatingFolder && (
           <div className="px-4 py-8 text-center flex flex-col items-center justify-center text-slate-500">
-            <FolderGit2 className="w-8 h-8 mb-2 opacity-30 text-slate-400" />
+            <FolderGit2 className="w-8 h-8 mb-2 opacity-30 text-[#8BBB92]" />
             <p className="text-xs mb-3 text-slate-400">No files in workspace</p>
             <button
               onClick={() => {
                 setIsCreatingFile(true);
                 setNameInput("");
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded text-xs font-medium transition"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#2A835F]/20 hover:bg-[#2A835F]/30 text-[#8BBB92] border border-[#2A835F]/40 rounded text-xs font-medium transition cursor-pointer"
             >
               <FilePlus className="w-3.5 h-3.5" /> New File
             </button>

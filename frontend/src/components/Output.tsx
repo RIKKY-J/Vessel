@@ -17,12 +17,12 @@ export default function Output({ replId }: OutputProps) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#161b22] border-b border-slate-800">
+    <div className="flex flex-col h-full bg-[#092328] border-b border-[#12544F]">
       {/* Browser Bar */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-[#0d1117] border-b border-slate-800 text-xs">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-[#12544F]/20 border-b border-[#12544F] text-xs">
         <div className="flex items-center gap-2 flex-1 mr-3">
-          <Globe className="w-3.5 h-3.5 text-slate-400" />
-          <div className="flex-1 bg-[#161b22] border border-slate-700/80 rounded px-2.5 py-1 text-slate-300 text-xs truncate">
+          <Globe className="w-3.5 h-3.5 text-[#8BBB92]" />
+          <div className="flex-1 bg-[#092328] border border-[#12544F] rounded px-2.5 py-1 text-[#8BBB92] text-xs font-mono truncate">
             {instanceUri}
           </div>
         </div>
@@ -31,7 +31,7 @@ export default function Output({ replId }: OutputProps) {
           <button
             onClick={refreshIframe}
             title="Reload frame"
-            className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="p-1 rounded text-slate-300 hover:text-white hover:bg-[#12544F]/50 transition cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
@@ -40,7 +40,7 @@ export default function Output({ replId }: OutputProps) {
             target="_blank"
             rel="noopener noreferrer"
             title="Open in new tab"
-            className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="p-1 rounded text-slate-300 hover:text-white hover:bg-[#12544F]/50 transition cursor-pointer"
           >
             <ExternalLink className="w-3.5 h-3.5" />
           </a>

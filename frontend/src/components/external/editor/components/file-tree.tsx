@@ -64,8 +64,8 @@ const FileDiv = ({
       style={{ paddingLeft: `${depth * 14}px` }}
       className={`flex items-center py-1 px-2 cursor-pointer text-xs font-mono transition-colors rounded-sm mx-1 ${
         isSelected
-          ? "bg-blue-600/20 text-blue-300 font-medium"
-          : "text-slate-300 hover:bg-slate-800/80 hover:text-white"
+          ? "bg-[#2A835F]/25 text-[#8BBB92] font-semibold border-l-2 border-[#2A835F]"
+          : "text-slate-300 hover:bg-[#12544F]/40 hover:text-white"
       }`}
       onClick={onClick}
     >

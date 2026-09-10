@@ -23,7 +23,7 @@ import Output from "@/components/Output";
 const Editor = dynamic(() => import("@/components/Editor"), {
   ssr: false,
   loading: () => (
-    <div className="flex-1 flex items-center justify-center bg-[#0d1117] text-slate-500">
+    <div className="flex-1 flex items-center justify-center bg-[#092328] text-[#8BBB92]">
       <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading Editor...
     </div>
   ),
@@ -32,7 +32,7 @@ const Editor = dynamic(() => import("@/components/Editor"), {
 const TerminalComponent = dynamic(() => import("@/components/Terminal"), {
   ssr: false,
   loading: () => (
-    <div className="flex-1 flex items-center justify-center bg-[#0d1117] text-slate-500">
+    <div className="flex-1 flex items-center justify-center bg-[#092328] text-[#8BBB92]">
       <Loader2 className="w-6 h-6 animate-spin mr-2" /> Initializing Terminal...
     </div>
   ),
@@ -386,11 +386,11 @@ function WorkspaceInner() {
 
   if (!replId) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0d1117] text-slate-300 p-4">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#092328] text-slate-300 p-4">
         <AlertCircle className="w-10 h-10 text-yellow-400 mb-3" />
         <h2 className="text-xl font-bold mb-2">No REPL ID Specified</h2>
-        <p className="text-slate-500 text-sm mb-4">Please return to the landing page and start a project.</p>
-        <button onClick={() => router.push("/")} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition flex items-center gap-2">
+        <p className="text-slate-400 text-sm mb-4">Please return to the landing page and start a project.</p>
+        <button onClick={() => router.push("/")} className="px-4 py-2 bg-[#2A835F] hover:bg-[#2A835F]/90 text-white rounded-lg text-sm font-medium transition flex items-center gap-2 cursor-pointer shadow-md">
           <ArrowLeft className="w-4 h-4" /> Go to Home
         </button>
       </div>
@@ -399,26 +399,26 @@ function WorkspaceInner() {
 
   if (!podCreated) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0d1117] text-slate-300 p-4">
-        <div className="p-8 rounded-2xl bg-[#161b22] border border-slate-700/80 text-center max-w-md w-full shadow-2xl relative overflow-hidden">
-          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-500 animate-pulse" />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#092328] text-slate-300 p-4">
+        <div className="p-8 rounded-2xl bg-[#12544F]/35 border border-[#12544F] text-center max-w-md w-full shadow-2xl relative overflow-hidden backdrop-blur-md">
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#2A835F] via-[#8BBB92] to-[#12544F] animate-pulse" />
           <div className="relative w-12 h-12 mx-auto mb-4">
-            <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
-            <TerminalIcon className="w-5 h-5 text-slate-300 absolute inset-0 m-auto" />
+            <Loader2 className="w-12 h-12 text-[#8BBB92] animate-spin" />
+            <TerminalIcon className="w-5 h-5 text-slate-200 absolute inset-0 m-auto" />
           </div>
           <h3 className="text-xl font-bold text-white mb-1">Booting Cloud Sandbox</h3>
-          <p className="text-slate-400 text-xs mb-4">
+          <p className="text-slate-300 text-xs mb-4">
             Preparing your isolated Kubernetes environment and terminal
           </p>
 
-          <div className="flex items-center gap-2.5 bg-[#0d1117] border border-slate-800 rounded-lg p-3 mb-4 text-left">
-            <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping shrink-0" />
-            <span className="text-xs font-mono text-blue-300 flex-1 truncate">
+          <div className="flex items-center gap-2.5 bg-[#092328] border border-[#12544F] rounded-lg p-3 mb-4 text-left">
+            <span className="w-2 h-2 rounded-full bg-[#8BBB92] animate-ping shrink-0" />
+            <span className="text-xs font-mono text-[#8BBB92] flex-1 truncate">
               {podStatus}
             </span>
           </div>
 
-          <div className="text-[11px] font-mono text-slate-500 bg-[#0d1117]/60 px-3 py-1.5 rounded-md truncate">
+          <div className="text-[11px] font-mono text-slate-400 bg-[#092328]/80 border border-[#12544F]/50 px-3 py-1.5 rounded-md truncate">
             workspace: {replId}
           </div>
         </div>
@@ -432,29 +432,29 @@ function WorkspaceInner() {
   const showTerminal = viewMode === "split" || viewMode === "terminal";
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0d1117] select-none">
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#092328] select-none">
       {/* Full-viewport drag overlay to prevent iframe/Monaco pointer capture */}
       {isDraggingMain && <div className="fixed inset-0 z-50 select-none cursor-col-resize" />}
       {isDraggingRight && <div className="fixed inset-0 z-50 select-none cursor-row-resize" />}
 
       {/* Top Navigation Bar */}
-      <header className="h-12 bg-[#161b22] border-b border-slate-800 px-4 flex items-center justify-between shrink-0 select-none z-30">
+      <header className="h-12 bg-[#12544F]/30 border-b border-[#12544F] px-4 flex items-center justify-between shrink-0 select-none z-30 backdrop-blur-md">
         <div className="flex items-center gap-3">
-          <button onClick={handleCloseProject} disabled={isStopping} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition disabled:opacity-50" title="Save & Back to Home">
+          <button onClick={handleCloseProject} disabled={isStopping} className="p-1.5 text-slate-300 hover:text-white hover:bg-[#12544F]/60 rounded-lg transition disabled:opacity-50 cursor-pointer" title="Save & Back to Home">
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="flex items-center gap-2">
             <img src="/logo.png" alt="Vessel" className="w-5 h-5 object-contain" />
             <span className="font-semibold text-sm text-white tracking-wide">Vessel</span>
-            <span className="text-slate-600">/</span>
-            <span className="font-mono text-xs text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded">
+            <span className="text-[#8BBB92]/50">/</span>
+            <span className="font-mono text-xs text-[#8BBB92] bg-[#2A835F]/20 border border-[#2A835F]/40 px-2 py-0.5 rounded">
               {replId}
             </span>
           </div>
         </div>
 
         {/* View Mode Switcher */}
-        <div className="flex items-center bg-[#0d1117] border border-slate-800 p-0.5 rounded-lg">
+        <div className="flex items-center bg-[#092328] border border-[#12544F] p-0.5 rounded-lg">
           {([
             { mode: "split", icon: <Columns className="w-3.5 h-3.5" />, label: "Split", title: "Split View" },
             { mode: "code", icon: <Code2 className="w-3.5 h-3.5" />, label: "Code", title: "Code Only" },
@@ -465,10 +465,10 @@ function WorkspaceInner() {
               key={mode}
               onClick={() => setViewMode(mode)}
               title={title}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition cursor-pointer ${
                 viewMode === mode
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+                  ? "bg-[#2A835F] text-white shadow-sm"
+                  : "text-slate-300 hover:text-white hover:bg-[#12544F]/60"
               }`}
             >
               {icon}
@@ -478,7 +478,7 @@ function WorkspaceInner() {
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md">
+          <div className="flex items-center gap-1.5 text-xs text-[#8BBB92] bg-[#2A835F]/20 border border-[#2A835F]/35 px-2.5 py-1 rounded-md">
             <CheckCircle2 className="w-3.5 h-3.5" />
             <span className="hidden sm:inline font-medium">Pod Active</span>
           </div>
@@ -501,12 +501,12 @@ function WorkspaceInner() {
 
       {/* Stopping Overlay */}
       {isStopping && (
-        <div className="fixed inset-0 z-50 bg-[#0d1117]/85 backdrop-blur-md flex flex-col items-center justify-center p-4">
-          <div className="p-8 rounded-2xl bg-[#161b22] border border-slate-700/80 max-w-sm w-full text-center shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-[#092328]/90 backdrop-blur-md flex flex-col items-center justify-center p-4">
+          <div className="p-8 rounded-2xl bg-[#12544F]/40 border border-[#12544F] max-w-sm w-full text-center shadow-2xl backdrop-blur-md">
             <Loader2 className="w-10 h-10 text-red-500 animate-spin mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-white mb-2">Closing Project Workspace</h3>
             <p className="text-slate-300 text-xs mb-4 leading-relaxed">{stopMessage}</p>
-            <div className="text-[11px] font-mono text-slate-400 bg-[#0d1117] border border-slate-800 px-3 py-1.5 rounded-md truncate">
+            <div className="text-[11px] font-mono text-[#8BBB92] bg-[#092328] border border-[#12544F] px-3 py-1.5 rounded-md truncate">
               replId: {replId}
             </div>
           </div>
@@ -542,11 +542,11 @@ function WorkspaceInner() {
             onDoubleClick={() => setMainSplit(50)}
             title="Drag to resize (Double-click to reset 50/50)"
             className={`w-2 h-full cursor-col-resize relative z-20 flex-shrink-0 transition-colors duration-150 group flex items-center justify-center select-none ${
-              isDraggingMain ? "bg-blue-600/30" : "bg-[#161b22] hover:bg-blue-500/20"
+              isDraggingMain ? "bg-[#2A835F]/30" : "bg-[#092328] hover:bg-[#12544F]"
             }`}
           >
-            <div className={`w-[1px] h-full transition-colors ${isDraggingMain ? "bg-blue-500" : "bg-slate-800 group-hover:bg-blue-400"}`} />
-            <div className={`absolute w-1 h-8 rounded-full transition-colors ${isDraggingMain ? "bg-blue-400 shadow-sm shadow-blue-500/50" : "bg-slate-700/80 group-hover:bg-blue-400"}`} />
+            <div className={`w-[1px] h-full transition-colors ${isDraggingMain ? "bg-[#2A835F]" : "bg-[#12544F] group-hover:bg-[#8BBB92]"}`} />
+            <div className={`absolute w-1 h-8 rounded-full transition-colors ${isDraggingMain ? "bg-[#8BBB92] shadow-sm shadow-[#2A835F]/50" : "bg-[#12544F] group-hover:bg-[#8BBB92]"}`} />
           </div>
         )}
 
@@ -557,7 +557,7 @@ function WorkspaceInner() {
             width: viewMode === "split" ? `calc(${100 - mainSplit}% - 4px)` : viewMode === "code" ? "0%" : "100%",
             display: showRightPanel ? "flex" : "none",
           }}
-          className="flex-col min-w-0 h-full bg-[#0d1117] overflow-hidden shrink-0"
+          className="flex-col min-w-0 h-full bg-[#092328] overflow-hidden shrink-0"
         >
           {/* Web Preview - always mounted for pre-load */}
           <div
@@ -577,11 +577,11 @@ function WorkspaceInner() {
               onDoubleClick={() => setRightSplit(50)}
               title="Drag to resize Preview vs Terminal (Double-click to reset)"
               className={`h-2 w-full cursor-row-resize relative z-20 flex-shrink-0 transition-colors duration-150 group flex items-center justify-center select-none ${
-                isDraggingRight ? "bg-blue-600/30" : "bg-[#161b22] hover:bg-blue-500/20"
+                isDraggingRight ? "bg-[#2A835F]/30" : "bg-[#092328] hover:bg-[#12544F]"
               }`}
             >
-              <div className={`h-[1px] w-full transition-colors ${isDraggingRight ? "bg-blue-500" : "bg-slate-800 group-hover:bg-blue-400"}`} />
-              <div className={`absolute h-1 w-8 rounded-full transition-colors ${isDraggingRight ? "bg-blue-400 shadow-sm shadow-blue-500/50" : "bg-slate-700/80 group-hover:bg-blue-400"}`} />
+              <div className={`h-[1px] w-full transition-colors ${isDraggingRight ? "bg-[#2A835F]" : "bg-[#12544F] group-hover:bg-[#8BBB92]"}`} />
+              <div className={`absolute h-1 w-8 rounded-full transition-colors ${isDraggingRight ? "bg-[#8BBB92] shadow-sm shadow-[#2A835F]/50" : "bg-[#12544F] group-hover:bg-[#8BBB92]"}`} />
             </div>
           )}
 
@@ -604,7 +604,7 @@ function WorkspaceInner() {
 export default function CodingPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-[#0d1117] text-slate-400">
+      <div className="min-h-screen flex items-center justify-center bg-[#092328] text-[#8BBB92]">
         <Loader2 className="w-8 h-8 animate-spin" />
       </div>
     }>

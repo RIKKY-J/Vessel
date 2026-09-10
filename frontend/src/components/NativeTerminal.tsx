@@ -310,20 +310,20 @@ export default function NativeTerminal({ socket }: TerminalProps) {
 
   return (
     <div
-      className="flex flex-col h-full bg-[#0d1117] border-t border-slate-800 font-mono text-xs select-text overflow-hidden"
+      className="flex flex-col h-full bg-[#092328] border-t border-[#12544F] font-mono text-xs select-text overflow-hidden"
       onClick={() => inputRef.current?.focus()}
     >
       {/* Terminal Toolbar */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-[#161b22] border-b border-slate-800 select-none shrink-0">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-[#12544F]/20 border-b border-[#12544F] select-none shrink-0">
         <div className="flex items-center gap-2">
-          <TerminalIcon className="w-3.5 h-3.5 text-blue-400" />
+          <TerminalIcon className="w-3.5 h-3.5 text-[#8BBB92]" />
           <span className="font-semibold text-slate-200">Terminal</span>
-          <span className="text-slate-500 text-[11px]">(interactive bash)</span>
+          <span className="text-[#8BBB92]/60 text-[11px]">(interactive bash)</span>
 
           {/* Status Badge */}
           {status === "active" ? (
-            <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="inline-flex items-center gap-1 text-[11px] text-[#8BBB92] bg-[#2A835F]/20 px-2 py-0.5 rounded-full border border-[#2A835F]/35">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#8BBB92] animate-pulse" />
               Active
             </span>
           ) : status === "retrying" ? (
@@ -332,7 +332,7 @@ export default function NativeTerminal({ socket }: TerminalProps) {
               Connecting...
             </span>
           ) : status === "connecting" ? (
-            <span className="inline-flex items-center gap-1 text-[11px] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/20">
+            <span className="inline-flex items-center gap-1 text-[11px] text-[#8BBB92] bg-[#2A835F]/20 px-2 py-0.5 rounded-full border border-[#2A835F]/35">
               <Loader2 className="w-3 h-3 animate-spin" />
               Initializing...
             </span>
@@ -348,16 +348,16 @@ export default function NativeTerminal({ socket }: TerminalProps) {
         <div className="flex items-center gap-1.5">
           <button
             onClick={handleCopyOutput}
-            className="px-2 py-1 rounded bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition text-[11px] flex items-center gap-1 border border-slate-700/60 cursor-pointer"
+            className="px-2 py-1 rounded bg-[#12544F]/40 hover:bg-[#12544F] text-slate-300 hover:text-white transition text-[11px] flex items-center gap-1 border border-[#12544F] cursor-pointer"
             title="Copy terminal output"
           >
-            {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+            {copied ? <Check className="w-3 h-3 text-[#8BBB92]" /> : <Copy className="w-3 h-3" />}
             <span>{copied ? "Copied" : "Copy"}</span>
           </button>
 
           <button
             onClick={() => setOutput("")}
-            className="px-2 py-1 rounded bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition text-[11px] flex items-center gap-1 border border-slate-700/60 cursor-pointer"
+            className="px-2 py-1 rounded bg-[#12544F]/40 hover:bg-[#12544F] text-slate-300 hover:text-white transition text-[11px] flex items-center gap-1 border border-[#12544F] cursor-pointer"
             title="Clear terminal log"
           >
             <Trash2 className="w-3 h-3" />
@@ -366,7 +366,7 @@ export default function NativeTerminal({ socket }: TerminalProps) {
 
           <button
             onClick={handleReconnect}
-            className="px-2 py-1 rounded bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition text-[11px] flex items-center gap-1 border border-slate-700/60 cursor-pointer"
+            className="px-2 py-1 rounded bg-[#12544F]/40 hover:bg-[#12544F] text-slate-300 hover:text-white transition text-[11px] flex items-center gap-1 border border-[#12544F] cursor-pointer"
             title="Reconnect shell session"
           >
             <RefreshCw className="w-3 h-3" />
@@ -378,14 +378,14 @@ export default function NativeTerminal({ socket }: TerminalProps) {
       {/* Terminal Log Output Viewport */}
       <div
         ref={scrollRef}
-        className="flex-1 p-3 overflow-y-auto font-mono text-[12px] leading-relaxed text-slate-200 whitespace-pre-wrap selection:bg-blue-600/40"
+        className="flex-1 p-3 overflow-y-auto font-mono text-[12px] leading-relaxed text-slate-200 whitespace-pre-wrap selection:bg-[#2A835F]/40"
       >
         <div dangerouslySetInnerHTML={{ __html: parseAnsi(output) }} />
       </div>
 
       {/* Quick Action Chips */}
-      <div className="px-3 py-1 bg-[#12161c] border-t border-slate-800/60 flex items-center gap-1.5 overflow-x-auto select-none shrink-0">
-        <span className="text-[10px] uppercase tracking-wider text-slate-500 mr-1">Quick:</span>
+      <div className="px-3 py-1 bg-[#092328] border-t border-[#12544F]/40 flex items-center gap-1.5 overflow-x-auto select-none shrink-0">
+        <span className="text-[10px] uppercase tracking-wider text-[#8BBB92]/60 mr-1">Quick:</span>
         {quickChips.map(({ label, cmd }) => (
           <button
             key={label}
@@ -394,7 +394,7 @@ export default function NativeTerminal({ socket }: TerminalProps) {
               e.stopPropagation();
               sendCommand(cmd);
             }}
-            className="px-2 py-0.5 rounded bg-[#161b22] hover:bg-blue-600/20 text-slate-400 hover:text-blue-300 border border-slate-800 text-[11px] transition cursor-pointer shrink-0"
+            className="px-2 py-0.5 rounded bg-[#12544F]/30 hover:bg-[#2A835F]/30 text-slate-300 hover:text-[#8BBB92] border border-[#12544F]/60 text-[11px] transition cursor-pointer shrink-0"
           >
             {label}
           </button>
@@ -402,12 +402,12 @@ export default function NativeTerminal({ socket }: TerminalProps) {
       </div>
 
       {/* Interactive Command Input Prompt */}
-      <div className="flex items-center px-3 py-2 bg-[#161b22] border-t border-slate-800 shrink-0">
-        <div className="flex items-center gap-1.5 text-emerald-400 font-semibold select-none shrink-0">
-          <span className="text-blue-400">root@sandbox</span>
-          <span className="text-slate-500">:</span>
-          <span className="text-purple-400">/workspace</span>
-          <span className="text-slate-300 font-bold">$</span>
+      <div className="flex items-center px-3 py-2 bg-[#12544F]/25 border-t border-[#12544F] shrink-0">
+        <div className="flex items-center gap-1.5 text-[#8BBB92] font-semibold select-none shrink-0">
+          <span className="text-[#8BBB92]">root@sandbox</span>
+          <span className="text-[#8BBB92]/50">:</span>
+          <span className="text-[#8BBB92]">/workspace</span>
+          <span className="text-[#2A835F] font-bold">$</span>
         </div>
 
         <div className="flex-1 flex items-center ml-2 relative">
@@ -418,7 +418,7 @@ export default function NativeTerminal({ socket }: TerminalProps) {
             onChange={(e) => setCommandInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Type bash command and press Enter (e.g. ls, python3 main.py, npm start)..."
-            className="w-full bg-transparent text-white font-mono text-xs focus:outline-none placeholder-slate-600"
+            className="w-full bg-transparent text-white font-mono text-xs focus:outline-none placeholder-slate-500"
             autoComplete="off"
             spellCheck="false"
           />
@@ -428,7 +428,7 @@ export default function NativeTerminal({ socket }: TerminalProps) {
           type="button"
           onClick={() => sendCommand()}
           disabled={!commandInput.trim()}
-          className="ml-2 px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:hover:bg-blue-600 text-white text-[11px] font-medium transition flex items-center gap-1 cursor-pointer shrink-0"
+          className="ml-2 px-2.5 py-1 rounded bg-[#2A835F] hover:brightness-110 disabled:opacity-40 text-white text-[11px] font-medium transition flex items-center gap-1 cursor-pointer shrink-0 shadow-sm"
         >
           <Play className="w-3 h-3 fill-current" />
           <span>Run</span>
