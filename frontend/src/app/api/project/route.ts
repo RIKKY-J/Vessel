@@ -1,18 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
-import { copyS3Folder } from "@/lib/aws";
+import { copyS3Folder, checkS3FolderNotEmpty, normalizeLanguage } from "@/lib/aws";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { replId, language } = body;
 
-    if (!replId || !language) {
-      return NextResponse.json({ error: "replId and language are required" }, { status: 400 });
+    if (!replId) {
+      return NextResponse.json({ error: "replId is required" }, { status: 400 });
     }
 
-    await copyS3Folder(`base/${language}`, `code/${replId}`);
+    const normalizedLang = normalizeLanguage(language);
+    const existing = await checkS3FolderNotEmpty(`code/${replId}`);
 
-    return NextResponse.json({ message: "Project created", replId, language }, { status: 200 });
+    if (existing) {
+      console.log(`[API /project] Project code/${replId} already exists in S3. Resuming without overwriting.`);
+      return NextResponse.json({
+        message: "Project resumed",
+        replId,
+        language: normalizedLang,
+        isExisting: true,
+      }, { status: 200 });
+    }
+
+    console.log(`[API /project] Project code/${replId} is new. Initializing with base/${normalizedLang}...`);
+    await copyS3Folder(`base/${normalizedLang}`, `code/${replId}`);
+
+    return NextResponse.json({
+      message: "Project created",
+      replId,
+      language: normalizedLang,
+      isExisting: false,
+    }, { status: 200 });
   } catch (error: any) {
     console.error("Failed to initialize project in S3:", error);
     return NextResponse.json(

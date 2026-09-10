@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "seed-s3": "node ../scripts/seed-s3.js"
   },
   "dependencies": {
     "@kubernetes/client-node": "^0.20.0",

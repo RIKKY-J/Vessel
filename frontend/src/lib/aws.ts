@@ -9,25 +9,51 @@ function getS3Client(): S3 {
   });
 }
 
+export function normalizeLanguage(lang?: string): string {
+  const l = (lang || "").toLowerCase().trim();
+  if (l === "python" || l === "py" || l === "python3") return "python";
+  if (l === "node" || l === "node-js" || l === "nodejs" || l === "javascript" || l === "js") return "node-js";
+  return l || "node-js";
+}
+
+export async function checkS3FolderNotEmpty(prefix: string): Promise<boolean> {
+  const s3 = getS3Client();
+  const bucket = process.env.S3_BUCKET ?? "";
+  try {
+    const list = await s3.listObjectsV2({ Bucket: bucket, Prefix: prefix, MaxKeys: 1 }).promise();
+    return Boolean(list.Contents && list.Contents.length > 0);
+  } catch (err) {
+    console.warn(`checkS3FolderNotEmpty error for prefix ${prefix}:`, err);
+    return false;
+  }
+}
+
 export async function copyS3Folder(sourcePrefix: string, destinationPrefix: string, continuationToken?: string): Promise<void> {
   const s3 = getS3Client();
   const bucket = process.env.S3_BUCKET ?? "";
+  const cleanSource = sourcePrefix.replace(/\/+$/, "");
+  const cleanDest = destinationPrefix.replace(/\/+$/, "");
 
   try {
     const listParams: S3.ListObjectsV2Request = {
       Bucket: bucket,
-      Prefix: sourcePrefix,
+      Prefix: cleanSource,
       ContinuationToken: continuationToken,
     };
 
     const listedObjects = await s3.listObjectsV2(listParams).promise();
 
-    if (!listedObjects.Contents || listedObjects.Contents.length === 0) return;
+    if (!listedObjects.Contents || listedObjects.Contents.length === 0) {
+      console.warn(`No objects found in S3 with prefix: ${cleanSource}`);
+      return;
+    }
 
     await Promise.all(
       listedObjects.Contents.map(async (object) => {
         if (!object.Key) return;
-        const destinationKey = object.Key.replace(sourcePrefix, destinationPrefix);
+        const relPath = object.Key.slice(cleanSource.length).replace(/^\/+/, "");
+        if (!relPath) return; // Directory marker
+        const destinationKey = `${cleanDest}/${relPath}`;
         const copyParams = {
           Bucket: bucket,
           CopySource: `${bucket}/${object.Key}`,
@@ -35,7 +61,7 @@ export async function copyS3Folder(sourcePrefix: string, destinationPrefix: stri
         };
 
         await s3.copyObject(copyParams).promise();
-        console.log(`Copied ${object.Key} to ${destinationKey}`);
+        console.log(`Copied ${object.Key} -> ${destinationKey}`);
       })
     );
 
@@ -50,11 +76,14 @@ export async function copyS3Folder(sourcePrefix: string, destinationPrefix: stri
 
 export async function saveToS3(key: string, filePath: string, content: string): Promise<void> {
   const s3 = getS3Client();
+  const cleanKey = key.replace(/\/+$/, "");
+  const cleanPath = filePath.replace(/^\/+/, "");
   const params = {
     Bucket: process.env.S3_BUCKET ?? "",
-    Key: `${key}${filePath}`,
+    Key: `${cleanKey}/${cleanPath}`,
     Body: content,
   };
 
   await s3.putObject(params).promise();
 }
+

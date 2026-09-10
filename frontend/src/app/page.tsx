@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
-import { RefreshCw, ArrowRight, Sparkles, Cpu, Terminal, Code2 } from "lucide-react";
+import { RefreshCw, ArrowRight, Sparkles, Cpu, Terminal, Code2, FolderGit2, CheckCircle2 } from "lucide-react";
 
 const SLUG_WORDS = [
   "swift", "cosmic", "cyber", "pixel", "quantum", "turbo", "hyper",
@@ -25,6 +25,41 @@ export default function LandingPage() {
   const [replId, setReplId] = useState(() => getRandomSlug());
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isExisting, setIsExisting] = useState(false);
+  const [checkingExisting, setCheckingExisting] = useState(false);
+
+  // Check if replId already exists in S3
+  useEffect(() => {
+    const trimmed = replId.trim();
+    if (!trimmed) {
+      setIsExisting(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setCheckingExisting(true);
+      axios
+        .get(`/api/project/check?replId=${encodeURIComponent(trimmed)}`)
+        .then((res) => {
+          if (res.data?.exists) {
+            setIsExisting(true);
+            if (res.data.language) {
+              setLanguage(res.data.language);
+            }
+          } else {
+            setIsExisting(false);
+          }
+        })
+        .catch(() => {
+          setIsExisting(false);
+        })
+        .finally(() => {
+          setCheckingExisting(false);
+        });
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [replId]);
 
   const handleStartCoding = async () => {
     if (!replId.trim()) {
@@ -36,8 +71,9 @@ export default function LandingPage() {
     setErrorMessage(null);
 
     try {
-      await axios.post("/api/project", { replId: replId.trim(), language });
-      router.push(`/coding?replId=${encodeURIComponent(replId.trim())}`);
+      const res = await axios.post("/api/project", { replId: replId.trim(), language });
+      const finalLang = res.data?.language || language;
+      router.push(`/coding?replId=${encodeURIComponent(replId.trim())}&lang=${encodeURIComponent(finalLang)}`);
     } catch (err: any) {
       console.error("Error creating project:", err);
       setErrorMessage(err?.response?.data?.error || "Failed to start workspace. Please check configuration.");
@@ -93,6 +129,12 @@ export default function LandingPage() {
                 <RefreshCw className="w-4 h-4" />
               </button>
             </div>
+            {isExisting && (
+              <div className="mt-2.5 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
+                <FolderGit2 className="w-3.5 h-3.5 shrink-0" />
+                <span>Existing project found in S3 — your saved workspace files will be restored.</span>
+              </div>
+            )}
           </div>
 
           {/* Environment / Language selection */}
@@ -150,12 +192,21 @@ export default function LandingPage() {
             type="button"
             disabled={loading}
             onClick={handleStartCoding}
-            className="w-full py-3 px-5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-medium text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className={`w-full py-3 px-5 rounded-xl text-white font-medium text-sm flex items-center justify-center gap-2 shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
+              isExisting
+                ? "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-500/25"
+                : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-500/25"
+            }`}
           >
             {loading ? (
               <>
                 <RefreshCw className="w-4 h-4 animate-spin" />
-                Provisioning Sandbox...
+                {isExisting ? "Resuming Workspace..." : "Provisioning Sandbox..."}
+              </>
+            ) : isExisting ? (
+              <>
+                Resume Saved Project
+                <ArrowRight className="w-4 h-4" />
               </>
             ) : (
               <>

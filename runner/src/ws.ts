@@ -1,6 +1,6 @@
 import { Server, Socket } from "socket.io";
 import { Server as HttpServer } from "http";
-import { saveToS3 } from "./aws";
+import { saveToS3, fetchS3Folder, saveFolderToS3 } from "./aws";
 import path from "path";
 import { fetchDir, fetchFileContent, saveFile } from "./fs";
 import { TerminalManager } from "./pty";
@@ -30,9 +30,23 @@ export function initWs(httpServer: HttpServer) {
             return;
         }
 
-        console.log(`[WS] replId=${replId}, fetching /workspace`);
+        console.log(`[WS] replId=${replId}, checking /workspace`);
+        let rootContent = await fetchDir("/workspace", "");
+
+        // If workspace is empty, fetch files from S3 code folder as fallback
+        if (!rootContent || rootContent.length === 0) {
+            console.log(`[WS] /workspace is empty. Attempting S3 fallback fetch for replId=${replId}...`);
+            try {
+                await fetchS3Folder(`code/${replId}`, "/workspace");
+                rootContent = await fetchDir("/workspace", "");
+                console.log(`[WS] Fallback fetch complete. Files found: ${rootContent.length}`);
+            } catch (err) {
+                console.error("[WS] Fallback S3 fetch error:", err);
+            }
+        }
+
         socket.emit("loaded", {
-            rootContent: await fetchDir("/workspace", "")
+            rootContent
         });
 
         initHandlers(socket, replId);
@@ -80,6 +94,17 @@ function initHandlers(socket: Socket, replId: string) {
     socket.on("terminalData", async ({ data }: { data: string, terminalId: number }) => {
         console.log(`[WS] Received terminalData from client: ${JSON.stringify(data)}`);
         terminalManager.write(socket.id, data);
+    });
+
+    socket.on("saveAll", async (callback) => {
+        console.log(`[WS] saveAll requested from client socket.id=${socket.id} for replId=${replId}`);
+        try {
+            await saveFolderToS3("/workspace", `code/${replId}`);
+            if (typeof callback === "function") callback({ success: true });
+        } catch (err: any) {
+            console.error("[WS] saveAll error:", err);
+            if (typeof callback === "function") callback({ success: false, error: err?.message });
+        }
     });
 
 }

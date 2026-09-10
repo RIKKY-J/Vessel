@@ -15,6 +15,8 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  Square,
+  Save,
 } from "lucide-react";
 import Output from "@/components/Output";
 
@@ -42,6 +44,7 @@ function WorkspaceInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const replId = searchParams.get("replId") || "";
+  const language = searchParams.get("lang") || searchParams.get("language") || "node-js";
 
   const [podCreated, setPodCreated] = useState(false);
   const [podStatus, setPodStatus] = useState<string>("Initializing container...");
@@ -60,38 +63,174 @@ function WorkspaceInner() {
   const workspaceRef = useRef<HTMLElement | null>(null);
   const rightPanelRef = useRef<HTMLDivElement | null>(null);
 
-  // 1. Provision container
+  const [isStopping, setIsStopping] = useState(false);
+  const [stopMessage, setStopMessage] = useState<string>("Saving project to S3...");
+
+  // Send beacon on tab close / reload so pod does not run indefinitely
   useEffect(() => {
     if (!replId) return;
-    setPodStatus("Starting Kubernetes Pod...");
+
+    const handleBeforeUnload = () => {
+      try {
+        const payload = JSON.stringify({ replId });
+        const blob = new Blob([payload], { type: "application/json" });
+        navigator.sendBeacon("/api/stop", blob);
+      } catch (err) {
+        console.warn("Error sending stop beacon:", err);
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [replId]);
+
+  const handleCloseProject = async () => {
+    if (isStopping) return;
+    setIsStopping(true);
+    setStopMessage("Syncing all workspace files to S3...");
+
+    // 1. Ask runner via websocket to sync all files to S3
+    try {
+      if (socket && socket.connected) {
+        await new Promise((resolve) => {
+          const timeout = setTimeout(resolve, 2000);
+          socket.emit("saveAll", () => {
+            clearTimeout(timeout);
+            resolve(true);
+          });
+        });
+      }
+    } catch (e) {
+      console.warn("Socket sync error:", e);
+    }
+
+    // 2. Terminate Kubernetes Pod and release resources
+    setStopMessage("Terminating Kubernetes Pod and freeing cluster resources...");
+    try {
+      await axios.post("/api/stop", { replId });
+    } catch (e) {
+      console.warn("Error calling /api/stop:", e);
+    }
+
+    setStopMessage("Workspace saved and pod terminated. Redirecting to home...");
+    setTimeout(() => {
+      router.push("/?saved=" + encodeURIComponent(replId));
+    }, 500);
+  };
+
+  // 1. Provision container & monitor real-time pod readiness
+  useEffect(() => {
+    if (!replId) return;
+    let isMounted = true;
+    let pollInterval: NodeJS.Timeout | null = null;
+    let safetyTimeout: NodeJS.Timeout | null = null;
+
+    setPodStatus("Submitting Kubernetes deployment...");
+
+    const checkStatus = async () => {
+      try {
+        const res = await axios.get(`/api/status?replId=${encodeURIComponent(replId)}`);
+        if (!isMounted) return;
+
+        if (res.data?.statusText) {
+          setPodStatus(res.data.statusText);
+        }
+
+        if (res.data?.ready) {
+          if (pollInterval) clearInterval(pollInterval);
+          if (safetyTimeout) clearTimeout(safetyTimeout);
+          setPodStatus("Sandbox pod ready! Connecting workspace...");
+          setTimeout(() => {
+            if (isMounted) setPodCreated(true);
+          }, 500);
+        }
+      } catch (err) {
+        // Will retry on next tick
+      }
+    };
+
     axios
-      .post("/api/start", { replId })
-      .then(() => setPodCreated(true))
+      .post("/api/start", { replId, language })
+      .then(() => {
+        if (!isMounted) return;
+        setPodStatus("Deployment accepted. Waiting for pod to start...");
+        checkStatus();
+        pollInterval = setInterval(checkStatus, 1200);
+      })
       .catch((err) => {
         console.warn("Orchestrator warning (continuing for dev):", err);
-        setPodCreated(true);
+        if (!isMounted) return;
+        setPodStatus("Starting pod...");
+        checkStatus();
+        pollInterval = setInterval(checkStatus, 1500);
       });
-  }, [replId]);
+
+    // Safety timeout: In case status check is delayed, enter workspace after 20s
+    safetyTimeout = setTimeout(() => {
+      if (isMounted) {
+        console.log("[Workspace] Safety timeout reached, proceeding to workspace");
+        if (pollInterval) clearInterval(pollInterval);
+        setPodCreated(true);
+      }
+    }, 20000);
+
+    return () => {
+      isMounted = false;
+      if (pollInterval) clearInterval(pollInterval);
+      if (safetyTimeout) clearTimeout(safetyTimeout);
+    };
+  }, [replId, language]);
 
   // 2. Connect WebSocket
   useEffect(() => {
     if (!podCreated || !replId) return;
+
     const clusterHost = process.env.NEXT_PUBLIC_CLUSTER_HOST || "52.90.6.151.nip.io:31516";
-    const wsUrl = process.env.NEXT_PUBLIC_RUNNER_WS_URL || `http://${replId}.${clusterHost}`;
+    let wsUrl = process.env.NEXT_PUBLIC_RUNNER_WS_URL;
+    if (!wsUrl) {
+      const protocol = typeof window !== "undefined" && window.location.protocol === "https:" ? "https:" : "http:";
+      wsUrl = `${protocol}//${replId}.${clusterHost}`;
+    }
+
+    console.log(`[Workspace] Connecting WebSocket to: ${wsUrl}`);
     const newSocket = io(wsUrl, {
       transports: ["websocket", "polling"],
-      reconnectionAttempts: 10,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 4000,
+      timeout: 20000,
+      query: { replId },
+      auth: { replId },
     });
+
     setSocket(newSocket);
+
+    newSocket.on("connect", () => {
+      console.log(`[Workspace] Connected to runner socket: id=${newSocket.id}, transport=${newSocket.io?.engine?.transport?.name}`);
+    });
+
     newSocket.on("loaded", ({ rootContent }: { rootContent: RemoteFile[] }) => {
+      console.log(`[Workspace] Received rootContent (${rootContent?.length || 0} items)`);
       setLoaded(true);
       setFileStructure(rootContent);
     });
+
     newSocket.on("connect_error", (err) => {
-      console.warn("WebSocket notice:", err.message);
-      setLoaded(true);
+      console.warn(`[Workspace] WebSocket connecting / retrying: ${err.message}`);
+      // Do not prematurely setLoaded(true) on first connect_error while container is still spinning up
     });
-    return () => { newSocket.disconnect(); };
+
+    newSocket.on("disconnect", (reason) => {
+      console.log(`[Workspace] Socket disconnected: ${reason}`);
+    });
+
+    return () => {
+      console.log("[Workspace] Cleaning up socket connection");
+      newSocket.disconnect();
+    };
   }, [podCreated, replId]);
 
   // Main horizontal split drag (Left Editor <-> Right Panel)
@@ -206,12 +345,26 @@ function WorkspaceInner() {
   if (!podCreated) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#0d1117] text-slate-300 p-4">
-        <div className="p-8 rounded-2xl bg-[#161b22] border border-slate-800 text-center max-w-sm w-full shadow-2xl">
-          <Loader2 className="w-10 h-10 text-blue-500 animate-spin mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-white mb-1">Booting Cloud Sandbox</h3>
-          <p className="text-slate-400 text-xs mb-3">{podStatus}</p>
-          <div className="text-[11px] font-mono text-slate-500 bg-[#0d1117] px-3 py-1.5 rounded-md truncate">
-            replId: {replId}
+        <div className="p-8 rounded-2xl bg-[#161b22] border border-slate-700/80 text-center max-w-md w-full shadow-2xl relative overflow-hidden">
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-500 animate-pulse" />
+          <div className="relative w-12 h-12 mx-auto mb-4">
+            <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
+            <TerminalIcon className="w-5 h-5 text-slate-300 absolute inset-0 m-auto" />
+          </div>
+          <h3 className="text-xl font-bold text-white mb-1">Booting Cloud Sandbox</h3>
+          <p className="text-slate-400 text-xs mb-4">
+            Preparing your isolated Kubernetes environment and terminal
+          </p>
+
+          <div className="flex items-center gap-2.5 bg-[#0d1117] border border-slate-800 rounded-lg p-3 mb-4 text-left">
+            <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping shrink-0" />
+            <span className="text-xs font-mono text-blue-300 flex-1 truncate">
+              {podStatus}
+            </span>
+          </div>
+
+          <div className="text-[11px] font-mono text-slate-500 bg-[#0d1117]/60 px-3 py-1.5 rounded-md truncate">
+            workspace: {replId}
           </div>
         </div>
       </div>
@@ -232,7 +385,7 @@ function WorkspaceInner() {
       {/* Top Navigation Bar */}
       <header className="h-12 bg-[#161b22] border-b border-slate-800 px-4 flex items-center justify-between shrink-0 select-none z-30">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push("/")} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition" title="Back to Home">
+          <button onClick={handleCloseProject} disabled={isStopping} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition disabled:opacity-50" title="Save & Back to Home">
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="flex items-center gap-2">
@@ -274,8 +427,36 @@ function WorkspaceInner() {
             <CheckCircle2 className="w-3.5 h-3.5" />
             <span className="hidden sm:inline font-medium">Pod Active</span>
           </div>
+
+          <button
+            onClick={handleCloseProject}
+            disabled={isStopping}
+            className="flex items-center gap-1.5 px-3 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/30 rounded-md text-xs font-medium transition cursor-pointer disabled:opacity-50"
+            title="Save workspace files to S3 and terminate the pod to free cluster resources"
+          >
+            {isStopping ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Square className="w-3.5 h-3.5 fill-current" />
+            )}
+            <span>{isStopping ? "Saving & Closing..." : "Save & Close"}</span>
+          </button>
         </div>
       </header>
+
+      {/* Stopping Overlay */}
+      {isStopping && (
+        <div className="fixed inset-0 z-50 bg-[#0d1117]/85 backdrop-blur-md flex flex-col items-center justify-center p-4">
+          <div className="p-8 rounded-2xl bg-[#161b22] border border-slate-700/80 max-w-sm w-full text-center shadow-2xl">
+            <Loader2 className="w-10 h-10 text-red-500 animate-spin mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-white mb-2">Closing Project Workspace</h3>
+            <p className="text-slate-300 text-xs mb-4 leading-relaxed">{stopMessage}</p>
+            <div className="text-[11px] font-mono text-slate-400 bg-[#0d1117] border border-slate-800 px-3 py-1.5 rounded-md truncate">
+              replId: {replId}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Draggable Workspace */}
       <main ref={workspaceRef} className="flex-1 flex overflow-hidden w-full">
