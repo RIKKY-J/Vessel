@@ -92,7 +92,7 @@ good-code/
 | **Server APIs** | Next.js Route Handlers (`/api/project`, `/api/start`) |
 | **Sandboxed Runner**| Node.js 20, Express, `node-pty`, Docker |
 | **Orchestration** | Kubernetes (`@kubernetes/client-node`), NGINX Ingress |
-| **Object Storage** | AWS S3 / Cloudflare R2 / MinIO via `aws-sdk` |
+| **Object Storage** | AWS S3 |
 
 ---
 
