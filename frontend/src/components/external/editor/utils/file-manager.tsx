@@ -48,13 +48,18 @@ export function buildFileTree(data: RemoteFile[]): Directory {
     dirs: [],
     files: []
   };
+  const normalizePath = (p: string) => p.replace(/^\/+/, "").replace(/\\/g, "/");
+
   // 将<id，目录对象>存入map
   dirs.forEach((item) => {
+    const rel = normalizePath(item.path);
+    const isRoot = !rel.includes("/");
+    const parentPath = isRoot ? "0" : rel.split("/").slice(0, -1).join("/");
     let dir: Directory = {
       id: item.path,
       name: item.name,
       path: item.path,
-      parentId: item.path.split("/").length === 2 ? "0" : dirs.find(x => x.path === item.path.split("/").slice(0, -1).join("/"))?.path,
+      parentId: isRoot ? "0" : (dirs.find(x => normalizePath(x.path) === parentPath)?.path || "0"),
       type: Type.DIRECTORY,
       depth: 0,
       dirs: [],
@@ -63,18 +68,23 @@ export function buildFileTree(data: RemoteFile[]): Directory {
 
     cache.set(dir.id, dir);
   });
+
   // 将<id，文件对象>存入map
   files.forEach((item) => {
+    const rel = normalizePath(item.path);
+    const isRoot = !rel.includes("/");
+    const parentPath = isRoot ? "0" : rel.split("/").slice(0, -1).join("/");
     let file: File = {
       id: item.path,
       name: item.name,
       path: item.path,
-      parentId: item.path.split("/").length === 2 ? "0" : dirs.find(x => x.path === item.path.split("/").slice(0, -1).join("/"))?.path,
+      parentId: isRoot ? "0" : (dirs.find(x => normalizePath(x.path) === parentPath)?.path || "0"),
       type: Type.FILE,
       depth: 0
     };
     cache.set(file.id, file);
   });
+
   // 开始遍历构建文件树
   cache.forEach((value, key) => {
     // '0'表示文件或目录位于根目录
@@ -83,9 +93,14 @@ export function buildFileTree(data: RemoteFile[]): Directory {
       else rootDir.files.push(value as File);
     } else {
       const parentDir = cache.get(value.parentId as string) as Directory;
-      if (value.type === Type.DIRECTORY)
-        parentDir.dirs.push(value as Directory);
-      else parentDir.files.push(value as File);
+      if (parentDir) {
+        if (value.type === Type.DIRECTORY) parentDir.dirs.push(value as Directory);
+        else parentDir.files.push(value as File);
+      } else {
+        // Fallback to root directory if parent was not found
+        if (value.type === Type.DIRECTORY) rootDir.dirs.push(value as Directory);
+        else rootDir.files.push(value as File);
+      }
     }
   });
 

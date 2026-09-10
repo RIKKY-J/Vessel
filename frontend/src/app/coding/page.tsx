@@ -66,36 +66,65 @@ function WorkspaceInner() {
   const [isStopping, setIsStopping] = useState(false);
   const [stopMessage, setStopMessage] = useState<string>("Saving project to S3...");
 
-  // Send beacon on tab close / reload so pod does not run indefinitely
+  // Preload project files from S3 immediately on mount
   useEffect(() => {
     if (!replId) return;
+    let isMounted = true;
+    axios
+      .get(`/api/project/files?replId=${encodeURIComponent(replId)}&lang=${encodeURIComponent(language)}`)
+      .then((res) => {
+        if (!isMounted) return;
+        if (res.data?.files && res.data.files.length > 0) {
+          console.log(`[Workspace] Preloaded ${res.data.files.length} files from S3`);
+          setFileStructure(res.data.files);
+          const preferred =
+            res.data.files.find((f: any) => f.name === "main.py" || f.name === "index.js") ||
+            res.data.files[0];
+          if (preferred) {
+            setSelectedFile({
+              id: preferred.path,
+              name: preferred.name,
+              path: preferred.path,
+              parentId: "0",
+              type: Type.FILE,
+              depth: 0,
+              content: preferred.content ?? "",
+            });
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn("[Workspace] Error preloading files from S3:", err);
+      });
 
-    const handleBeforeUnload = () => {
-      try {
-        const payload = JSON.stringify({ replId });
-        const blob = new Blob([payload], { type: "application/json" });
-        navigator.sendBeacon("/api/stop", blob);
-      } catch (err) {
-        console.warn("Error sending stop beacon:", err);
-      }
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
     return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
+      isMounted = false;
     };
-  }, [replId]);
+  }, [replId, language]);
 
   const handleCloseProject = async () => {
     if (isStopping) return;
     setIsStopping(true);
-    setStopMessage("Syncing all workspace files to S3...");
+    setStopMessage("Persisting all workspace files to S3...");
 
-    // 1. Ask runner via websocket to sync all files to S3
+    // 1. Persist active file to S3
+    if (selectedFile && selectedFile.content !== undefined) {
+      try {
+        await axios.post("/api/file/save", {
+          replId,
+          path: selectedFile.path,
+          content: selectedFile.content,
+        });
+      } catch (e) {
+        console.warn("[Close] Error saving active file to S3:", e);
+      }
+    }
+
+    // 2. Ask runner via websocket to sync (if supported)
     try {
       if (socket && socket.connected) {
         await new Promise((resolve) => {
-          const timeout = setTimeout(resolve, 2000);
+          const timeout = setTimeout(resolve, 1000);
           socket.emit("saveAll", () => {
             clearTimeout(timeout);
             resolve(true);
@@ -106,7 +135,7 @@ function WorkspaceInner() {
       console.warn("Socket sync error:", e);
     }
 
-    // 2. Terminate Kubernetes Pod and release resources
+    // 3. Terminate Kubernetes Pod and release resources
     setStopMessage("Terminating Kubernetes Pod and freeing cluster resources...");
     try {
       await axios.post("/api/stop", { replId });
@@ -292,10 +321,17 @@ function WorkspaceInner() {
         });
       });
     } else {
-      socket?.emit("fetchContent", { path: file.path }, (data: string) => {
-        file.content = data;
-        setSelectedFile(file);
-      });
+      // 1. Immediately select with existing in-memory content
+      setSelectedFile({ ...file, content: file.content ?? "" });
+
+      // 2. Fetch fresh content from socket if connected
+      if (socket && socket.connected) {
+        socket.emit("fetchContent", { path: file.path }, (data: string) => {
+          if (data !== undefined) {
+            setSelectedFile({ ...file, content: data });
+          }
+        });
+      }
     }
   };
 
@@ -304,12 +340,31 @@ function WorkspaceInner() {
     if (!cleanPath.startsWith("/")) cleanPath = `/${cleanPath}`;
     const fileName = cleanPath.split("/").pop() || cleanPath;
     const newRemoteFile: RemoteFile = { type: "file", name: fileName, path: cleanPath };
-    setFileStructure((prev) => prev.some((f) => f.path === cleanPath) ? prev : [...prev, newRemoteFile]);
+
+    setFileStructure((prev) => {
+      if (prev.some((f) => f.path === cleanPath)) return prev;
+      return [...prev, newRemoteFile];
+    });
+
+    // 1. Notify running container if connected
     socket?.emit("updateContent", { path: cleanPath, content: "" });
+
+    // 2. Persist empty file to S3 immediately
+    if (replId) {
+      axios.post("/api/file/save", { replId, path: cleanPath, content: "" }).catch((err) => {
+        console.warn("[Workspace] Error saving new file to S3:", err);
+      });
+    }
+
+    // 3. Immediately select new file in Monaco
     const newFileObj: File = {
-      id: cleanPath, name: fileName, path: cleanPath,
-      parentId: cleanPath.split("/").length === 2 ? "0" : undefined,
-      type: Type.FILE, depth: Math.max(0, cleanPath.split("/").length - 2), content: "",
+      id: cleanPath,
+      name: fileName,
+      path: cleanPath,
+      parentId: "0",
+      type: Type.FILE,
+      depth: 0,
+      content: "",
     };
     setSelectedFile(newFileObj);
   };
@@ -476,6 +531,7 @@ function WorkspaceInner() {
             onCreateFile={handleCreateFile}
             onCreateFolder={handleCreateFolder}
             onRefresh={handleRefresh}
+            replId={replId}
           />
         </section>
 
