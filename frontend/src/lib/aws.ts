@@ -92,9 +92,150 @@ export interface S3ProjectInfo {
   id: string;
   name: string;
   language: string;
+  createdAt?: string;
 }
 
-export async function listS3Projects(): Promise<S3ProjectInfo[]> {
+export interface UserProfile {
+  email: string;
+  name: string;
+  avatar?: string;
+  createdAt?: string;
+  lastLoginAt?: string;
+}
+
+export interface UserProjectItem {
+  id: string;
+  name: string;
+  language: string;
+  createdAt?: string;
+}
+
+export function sanitizeEmail(email: string): string {
+  return email.toLowerCase().trim().replace(/[^a-z0-9._-]/g, "_");
+}
+
+export async function syncUserInS3(user: UserProfile): Promise<UserProfile> {
+  const s3 = getS3Client();
+  const bucket = process.env.S3_BUCKET ?? "";
+  const sanitized = sanitizeEmail(user.email);
+  const key = `users/${sanitized}/profile.json`;
+
+  let existing: UserProfile | null = null;
+  try {
+    const res = await s3.getObject({ Bucket: bucket, Key: key }).promise();
+    if (res.Body) {
+      existing = JSON.parse(res.Body.toString("utf-8"));
+    }
+  } catch {}
+
+  const now = new Date().toISOString();
+  const updatedUser: UserProfile = {
+    email: user.email,
+    name: user.name || existing?.name || "Developer",
+    avatar: user.avatar || existing?.avatar,
+    createdAt: existing?.createdAt || now,
+    lastLoginAt: now,
+  };
+
+  await s3
+    .putObject({
+      Bucket: bucket,
+      Key: key,
+      Body: JSON.stringify(updatedUser, null, 2),
+      ContentType: "application/json",
+    })
+    .promise();
+
+  return updatedUser;
+}
+
+export async function getUserProjects(email: string): Promise<UserProjectItem[]> {
+  const s3 = getS3Client();
+  const bucket = process.env.S3_BUCKET ?? "";
+  const sanitized = sanitizeEmail(email);
+  const key = `users/${sanitized}/projects.json`;
+
+  try {
+    const res = await s3.getObject({ Bucket: bucket, Key: key }).promise();
+    if (res.Body) {
+      const list = JSON.parse(res.Body.toString("utf-8"));
+      if (Array.isArray(list)) return list;
+    }
+  } catch {}
+
+  return [];
+}
+
+export async function addProjectToUser(email: string, project: UserProjectItem): Promise<void> {
+  const s3 = getS3Client();
+  const bucket = process.env.S3_BUCKET ?? "";
+  const sanitized = sanitizeEmail(email);
+  const key = `users/${sanitized}/projects.json`;
+
+  const existing = await getUserProjects(email);
+  const updated = [
+    project,
+    ...existing.filter((p) => p.id !== project.id),
+  ];
+
+  await s3
+    .putObject({
+      Bucket: bucket,
+      Key: key,
+      Body: JSON.stringify(updated, null, 2),
+      ContentType: "application/json",
+    })
+    .promise();
+}
+
+export async function deleteProjectFromUser(email: string, replId: string): Promise<void> {
+  const s3 = getS3Client();
+  const bucket = process.env.S3_BUCKET ?? "";
+  const sanitized = sanitizeEmail(email);
+  const key = `users/${sanitized}/projects.json`;
+
+  // 1. Update user projects list in S3
+  const existing = await getUserProjects(email);
+  const updated = existing.filter((p) => p.id !== replId);
+
+  await s3
+    .putObject({
+      Bucket: bucket,
+      Key: key,
+      Body: JSON.stringify(updated, null, 2),
+      ContentType: "application/json",
+    })
+    .promise();
+
+  // 2. Delete all files in S3 under code/${replId}/
+  try {
+    const list = await s3
+      .listObjectsV2({
+        Bucket: bucket,
+        Prefix: `code/${replId}/`,
+      })
+      .promise();
+
+    if (list.Contents && list.Contents.length > 0) {
+      await s3
+        .deleteObjects({
+          Bucket: bucket,
+          Delete: {
+            Objects: list.Contents.map((obj) => ({ Key: obj.Key! })),
+          },
+        })
+        .promise();
+    }
+  } catch (err) {
+    console.warn(`Error deleting S3 folder code/${replId}/:`, err);
+  }
+}
+
+export async function listS3Projects(email?: string): Promise<S3ProjectInfo[]> {
+  if (email) {
+    return getUserProjects(email);
+  }
+
   const s3 = getS3Client();
   const bucket = process.env.S3_BUCKET ?? "";
 
@@ -125,5 +266,6 @@ export async function listS3Projects(): Promise<S3ProjectInfo[]> {
     return [];
   }
 }
+
 
 

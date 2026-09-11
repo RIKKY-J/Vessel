@@ -13,15 +13,23 @@ import {
   Loader2,
   RefreshCw,
   Sparkles,
-  ExternalLink,
-  Code2,
-  Terminal,
+  Trash2,
+  Clock,
 } from "lucide-react";
 
 interface S3Project {
   id: string;
   name: string;
   language: string;
+  createdAt?: string;
+}
+
+interface UserSession {
+  name: string;
+  email: string;
+  avatar?: string;
+  expiresAt?: number;
+  signedInAt?: number;
 }
 
 const ADJECTIVES = ["neon", "hyper", "turbo", "cosmic", "flux", "orbit", "vertex", "swift", "pulse", "cyber"];
@@ -37,10 +45,11 @@ function generateReplId(): string {
 export default function ProjectsPage() {
   const router = useRouter();
 
-  const [user, setUser] = useState<{ name: string; email: string; avatar?: string } | null>(null);
+  const [user, setUser] = useState<UserSession | null>(null);
   const [projects, setProjects] = useState<S3Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Create project form state
   const [newProjectName, setNewProjectName] = useState(generateReplId());
@@ -49,32 +58,41 @@ export default function ProjectsPage() {
   const [createError, setCreateError] = useState("");
 
   useEffect(() => {
-    // Check user authentication
+    // 1. Check user authentication and 12-hour session expiration
     try {
       const stored = localStorage.getItem("vessel_user");
-      if (stored) {
-        setUser(JSON.parse(stored));
-      } else {
-        // Provide default guest profile if not logged in
-        setUser({
-          name: "Developer",
-          email: "developer@vessel.cloud",
-        });
+      if (!stored) {
+        router.push("/signin");
+        return;
       }
-    } catch {
-      setUser({ name: "Developer", email: "developer@vessel.cloud" });
-    }
 
-    fetchProjects();
+      const parsed: UserSession = JSON.parse(stored);
+
+      // Verify 12-hour expiration window
+      if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
+        localStorage.removeItem("vessel_user");
+        router.push("/signin");
+        return;
+      }
+
+      setUser(parsed);
+      fetchProjects(parsed.email);
+    } catch {
+      router.push("/signin");
+    }
   }, []);
 
-  const fetchProjects = async () => {
+  const fetchProjects = async (email?: string) => {
     setLoadingProjects(true);
     try {
-      const res = await axios.get("/api/project");
+      const targetEmail = email || user?.email;
+      const url = targetEmail
+        ? `/api/project?email=${encodeURIComponent(targetEmail)}`
+        : "/api/project";
+      const res = await axios.get(url);
       setProjects(res.data?.projects || []);
     } catch (err) {
-      console.warn("Error fetching projects:", err);
+      console.warn("Error fetching user projects:", err);
     } finally {
       setLoadingProjects(false);
     }
@@ -95,13 +113,35 @@ export default function ProjectsPage() {
       await axios.post("/api/project", {
         replId,
         language: selectedLanguage,
+        email: user?.email,
       });
 
       router.push(`/coding?replId=${encodeURIComponent(replId)}&lang=${selectedLanguage}`);
     } catch (err: any) {
       console.error("Create project error:", err);
-      setCreateError(err?.response?.data?.error || "Failed to initialize project.");
+      setCreateError(err?.response?.data?.error || "Failed to initialize project in S3.");
       setIsCreating(false);
+    }
+  };
+
+  const handleDeleteProject = async (e: React.MouseEvent, projId: string) => {
+    e.stopPropagation();
+    const confirmed = window.confirm(
+      `Are you sure you want to delete workspace "${projId}"?\n\nThis will permanently delete all project files from S3 and release any active Kubernetes pods.`
+    );
+    if (!confirmed) return;
+
+    setDeletingId(projId);
+    try {
+      await axios.delete(
+        `/api/project?replId=${encodeURIComponent(projId)}&email=${encodeURIComponent(user?.email || "")}`
+      );
+      setProjects((prev) => prev.filter((p) => p.id !== projId));
+    } catch (err) {
+      console.error("Delete project error:", err);
+      alert("Failed to delete project. Please try again.");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -110,6 +150,15 @@ export default function ProjectsPage() {
       localStorage.removeItem("vessel_user");
     } catch (e) {}
     router.push("/");
+  };
+
+  const getRemainingTime = () => {
+    if (!user?.expiresAt) return "12h active";
+    const remainingMs = user.expiresAt - Date.now();
+    if (remainingMs <= 0) return "Session expired";
+    const hours = Math.floor(remainingMs / (1000 * 60 * 60));
+    const mins = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+    return `${hours}h ${mins}m left`;
   };
 
   const filteredProjects = projects.filter((p) =>
@@ -136,20 +185,28 @@ export default function ProjectsPage() {
         {/* User profile & actions */}
         <div className="flex items-center gap-3">
           {user && (
-            <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-[#181C24] border border-[#232936] text-xs">
+            <div className="flex items-center gap-2.5 px-3 py-1 rounded-lg bg-[#181C24] border border-[#232936] text-xs">
               <div className="w-5 h-5 rounded-full bg-[#E73F1E] text-white flex items-center justify-center font-bold text-[10px]">
                 {user.name ? user.name[0].toUpperCase() : "G"}
               </div>
-              <span className="font-medium text-slate-200 hidden sm:inline">{user.name}</span>
+              <div className="flex flex-col text-left">
+                <span className="font-medium text-slate-200 text-xs leading-none">{user.name}</span>
+                <span className="text-[10px] text-slate-500 font-mono leading-tight">{user.email}</span>
+              </div>
+              <div className="hidden md:flex items-center gap-1 text-[10px] text-slate-400 font-mono ml-2 pl-2 border-l border-[#232936]">
+                <Clock className="w-3 h-3 text-[#E73F1E]" />
+                <span>{getRemainingTime()}</span>
+              </div>
             </div>
           )}
 
           <button
             onClick={handleSignOut}
-            title="Sign out"
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#181C24] border border-transparent hover:border-[#232936] transition cursor-pointer"
+            title="Sign out (ends session)"
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-slate-400 hover:text-white hover:bg-[#181C24] border border-transparent hover:border-[#232936] text-xs transition cursor-pointer font-medium"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Logout</span>
           </button>
         </div>
       </header>
@@ -165,7 +222,7 @@ export default function ProjectsPage() {
                 Create New Project
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                Spin up an isolated Kubernetes container pod and launch Monaco IDE.
+                Spin up an isolated Kubernetes container pod and persist code to your S3 folder.
               </p>
             </div>
           </div>
@@ -267,7 +324,7 @@ export default function ProjectsPage() {
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                All projects synced to your persistent AWS S3 storage. Click any workspace to resume.
+                Workspaces stored in your S3 account. Launch to edit, or delete when no longer needed.
               </p>
             </div>
 
@@ -284,7 +341,7 @@ export default function ProjectsPage() {
               </div>
 
               <button
-                onClick={fetchProjects}
+                onClick={() => fetchProjects()}
                 disabled={loadingProjects}
                 title="Refresh project list"
                 className="h-9 w-9 bg-[#12151B] border border-[#232936] hover:bg-[#181C24] text-slate-300 hover:text-white rounded-xl flex items-center justify-center transition cursor-pointer"
@@ -298,7 +355,7 @@ export default function ProjectsPage() {
           {loadingProjects ? (
             <div className="py-20 flex flex-col items-center justify-center text-slate-400 gap-3">
               <Loader2 className="w-8 h-8 animate-spin text-[#E73F1E]" />
-              <p className="text-xs font-mono">Loading workspaces from S3...</p>
+              <p className="text-xs font-mono">Loading your workspaces from S3...</p>
             </div>
           ) : filteredProjects.length === 0 ? (
             <div className="bg-[#12151B] border border-[#232936] rounded-2xl py-16 text-center px-4">
@@ -333,15 +390,32 @@ export default function ProjectsPage() {
                         <span className="font-mono text-xs font-bold text-white group-hover:text-[#E73F1E] transition truncate">
                           {proj.name}
                         </span>
-                        <span
-                          className={`text-[10px] font-mono px-2 py-0.5 rounded-full border shrink-0 ${
-                            isPy
-                              ? "bg-blue-500/10 text-blue-300 border-blue-500/30"
-                              : "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
-                          }`}
-                        >
-                          {isPy ? "Python" : "Node.js"}
-                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span
+                            className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
+                              isPy
+                                ? "bg-blue-500/10 text-blue-300 border-blue-500/30"
+                                : "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
+                            }`}
+                          >
+                            {isPy ? "Python" : "Node.js"}
+                          </span>
+
+                          {/* Delete Project Action */}
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteProject(e, proj.id)}
+                            disabled={deletingId === proj.id}
+                            title="Delete workspace from S3"
+                            className="p-1 rounded-md text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition cursor-pointer"
+                          >
+                            {deletingId === proj.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-red-400" />
+                            ) : (
+                              <Trash2 className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                       <p className="text-[11px] text-slate-400 font-mono truncate">
                         s3://code/{proj.id}
