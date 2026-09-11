@@ -618,28 +618,6 @@ function WorkspaceInner() {
               {replId}
             </span>
           </div>
-
-          {/* Primary Run Button */}
-          <button
-            onClick={handleRunProject}
-            disabled={isRunning || isStopping}
-            title="Run application & update preview (Ctrl + Enter)"
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-sm transition cursor-pointer border select-none ${
-              isRunning
-                ? "bg-[#E73F1E]/60 text-white/80 border-[#E73F1E] cursor-wait"
-                : "bg-[#E73F1E] hover:bg-[#ff4d29] text-white border-[#E73F1E] shadow-sm active:scale-95"
-            }`}
-          >
-            {isRunning ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
-            ) : (
-              <Play className="w-3.5 h-3.5 fill-current text-white" />
-            )}
-            <span>{isRunning ? "Running..." : "Run"}</span>
-            <span className="hidden md:inline-block text-[10px] opacity-80 bg-black/30 px-1.5 py-0.2 rounded font-mono font-normal">
-              Ctrl ↵
-            </span>
-          </button>
         </div>
 
         {/* View Mode Switcher */}
