@@ -11,7 +11,15 @@ export const fetchDir = (dir: string, baseDir: string): Promise<File[]>  => {
             if (err) {
                 reject(err);
             } else {
-                resolve(files.map(file => ({ type: file.isDirectory() ? "dir" : "file", name: file.name, path: `${baseDir}/${file.name}`  })));
+                resolve(
+                    files
+                        .filter((file) => file.name !== "node_modules" && file.name !== ".git" && file.name !== ".cache")
+                        .map((file) => ({
+                            type: file.isDirectory() ? "dir" : "file",
+                            name: file.name,
+                            path: `${baseDir}/${file.name}`,
+                        }))
+                );
             }
         });       
     });

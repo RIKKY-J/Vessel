@@ -33,6 +33,7 @@ export class TerminalManager {
                 TERM: 'xterm-256color',
                 COLORTERM: 'truecolor',
                 SHELL: SHELL,
+                NODE_PATH: process.env.NODE_PATH || '/code/node_modules:/usr/local/lib/node_modules:/workspace/node_modules',
                 PATH: process.env.PATH || '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
             },
         });

@@ -53,10 +53,32 @@ spec:
       containers:
         - name: runner
           image: rikkyj/runner:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - >
+              echo "=== PodForge Runner Initializing ===";
+              export NODE_PATH="/code/node_modules:/usr/local/lib/node_modules:/workspace/node_modules";
+              mkdir -p /workspace/node_modules;
+              for mod in express cors dotenv body-parser; do
+                if [ -d "/code/node_modules/$mod" ] && [ ! -e "/workspace/node_modules/$mod" ]; then
+                  ln -s "/code/node_modules/$mod" "/workspace/node_modules/$mod" 2>/dev/null || true;
+                fi;
+              done;
+              if [ -f /workspace/index.js ]; then
+                echo "Pre-launching Node application on port 3000...";
+                (cd /workspace && node --watch index.js &);
+              elif [ -f /workspace/main.py ]; then
+                echo "Pre-launching Python application on port 3000...";
+                (cd /workspace && python3 main.py &);
+              fi;
+              echo "Starting Runner WebSocket daemon on port 3001...";
+              exec node /code/dist/index.js
           ports:
             - containerPort: 3001
             - containerPort: 3000
           env:
+            - name: NODE_PATH
+              value: "/code/node_modules:/usr/local/lib/node_modules:/workspace/node_modules"
             - name: S3_BUCKET
               value: "{{S3_BUCKET}}"
             - name: AWS_ACCESS_KEY_ID
@@ -523,7 +545,7 @@ export async function restartPodApp(
   const customCmdClean = (command || "").trim();
   const customCmdB64 = Buffer.from(customCmdClean, "utf-8").toString("base64");
 
-  const restartScript = `node -e 'const cp = require("child_process"), fs = require("fs"); const ps = cp.execSync("ps -eo pid,cmd", { encoding: "utf-8" }); const myPid = process.pid; for (const line of ps.split("\\n")) { const trimmed = line.trim(); if (!trimmed) continue; const [pidStr, ...cmdParts] = trimmed.split(/\\s+/); const cmd = cmdParts.join(" "); const pid = parseInt(pidStr, 10); if (pid !== 1 && pid !== myPid && (cmd.includes("workspace") || cmd.includes("--watch") || cmd.includes("npm") || cmd.includes("node") || cmd.includes("python") || cmd.includes("flask") || cmd.includes("uvicorn") || (cmd.includes("index.js") && !cmd.includes("dist/")))) { try { process.kill(pid, "SIGKILL"); } catch (e) {} } } const custom = Buffer.from("${customCmdB64}", "base64").toString("utf-8").trim(); let child; if (custom) { child = cp.spawn("/bin/sh", ["-c", custom], { cwd: "/workspace", detached: true, stdio: "ignore" }); } else { const isPython = fs.existsSync("/workspace/main.py") && !fs.existsSync("/workspace/package.json"); child = cp.spawn(isPython ? "python3" : "node", isPython ? ["main.py"] : ["--watch", "index.js"], { cwd: "/workspace", detached: true, stdio: "ignore" }); } child.unref();'`;
+  const restartScript = `node -e 'const cp = require("child_process"), fs = require("fs"); const ps = cp.execSync("ps -eo pid,cmd", { encoding: "utf-8" }); const myPid = process.pid; for (const line of ps.split("\\n")) { const trimmed = line.trim(); if (!trimmed) continue; const [pidStr, ...cmdParts] = trimmed.split(/\\s+/); const cmd = cmdParts.join(" "); const pid = parseInt(pidStr, 10); if (pid !== 1 && pid !== myPid && (cmd.includes("workspace") || cmd.includes("--watch") || cmd.includes("npm") || cmd.includes("node") || cmd.includes("python") || cmd.includes("flask") || cmd.includes("uvicorn") || (cmd.includes("index.js") && !cmd.includes("dist/")))) { try { process.kill(pid, "SIGKILL"); } catch (e) {} } } if (!fs.existsSync("/workspace/node_modules")) { try { fs.mkdirSync("/workspace/node_modules", { recursive: true }); } catch (e) {} } for (const mod of ["express", "cors", "dotenv", "body-parser"]) { if (fs.existsSync("/code/node_modules/" + mod) && !fs.existsSync("/workspace/node_modules/" + mod)) { try { fs.symlinkSync("/code/node_modules/" + mod, "/workspace/node_modules/" + mod); } catch (e) {} } } const custom = Buffer.from("${customCmdB64}", "base64").toString("utf-8").trim(); const childEnv = Object.assign({}, process.env, { NODE_PATH: "/code/node_modules:/usr/local/lib/node_modules:/workspace/node_modules" }); let child; if (custom) { child = cp.spawn("/bin/sh", ["-c", custom], { cwd: "/workspace", env: childEnv, detached: true, stdio: "ignore" }); } else { const isPython = fs.existsSync("/workspace/main.py") && !fs.existsSync("/workspace/package.json"); child = cp.spawn(isPython ? "python3" : "node", isPython ? ["main.py"] : ["--watch", "index.js"], { cwd: "/workspace", env: childEnv, detached: true, stdio: "ignore" }); } child.unref();'`;
 
   const exec = new Exec(kubeconfig);
   const stdoutStream = new PassThrough();
