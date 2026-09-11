@@ -24,6 +24,17 @@ type TermStatus = "connecting" | "active" | "retrying" | "disconnected";
 function decodeData(buf: any): string {
   if (typeof buf === "string") return buf;
   if (!buf) return "";
+
+  // 1. Raw ArrayBuffer
+  if (buf instanceof ArrayBuffer) {
+    try {
+      return new TextDecoder("utf-8").decode(new Uint8Array(buf));
+    } catch {
+      return String.fromCharCode.apply(null, Array.from(new Uint8Array(buf)));
+    }
+  }
+
+  // 2. TypedArray or DataView (Uint8Array, etc.)
   if (buf instanceof Uint8Array || ArrayBuffer.isView(buf)) {
     try {
       return new TextDecoder("utf-8").decode(buf);
@@ -31,11 +42,28 @@ function decodeData(buf: any): string {
       return String.fromCharCode.apply(null, Array.from(buf as any));
     }
   }
-  if (typeof buf === "object" && buf.data && Array.isArray(buf.data)) {
-    return new TextDecoder("utf-8").decode(new Uint8Array(buf.data));
+
+  // 3. Object with data property (e.g. { data: ArrayBuffer } or { data: [...] })
+  if (typeof buf === "object") {
+    if (buf.data instanceof ArrayBuffer) {
+      return decodeData(buf.data);
+    }
+    if (buf.data instanceof Uint8Array || ArrayBuffer.isView(buf.data)) {
+      return decodeData(buf.data);
+    }
+    if (Array.isArray(buf.data)) {
+      try {
+        return new TextDecoder("utf-8").decode(new Uint8Array(buf.data));
+      } catch {
+        return String.fromCharCode.apply(null, buf.data);
+      }
+    }
+    if (typeof (buf as any).toString === "function" && buf.constructor?.name === "Buffer") {
+      return buf.toString("utf-8");
+    }
   }
-  if (buf.toString) return buf.toString("utf-8");
-  return String(buf);
+
+  return "";
 }
 
 export default function NativeTerminal({ socket, replId }: TerminalProps) {
