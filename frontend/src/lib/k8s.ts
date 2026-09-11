@@ -462,7 +462,7 @@ export async function writeFileToPod(
     stderr += chunk.toString("utf-8");
   });
 
-  const nodeScript = `node -e 'const fs = require("fs"), path = require("path"); const p = path.resolve("/workspace", process.argv[1]); fs.mkdirSync(path.dirname(p), {recursive: true}); fs.writeFileSync(p, Buffer.from(process.argv[2], "base64"));' "${cleanPath}" "${base64Content}"`;
+  const nodeScript = `node -e 'const fs = require("fs"), path = require("path"), cp = require("child_process"); const p = path.resolve("/workspace", process.argv[1]); fs.mkdirSync(path.dirname(p), {recursive: true}); fs.writeFileSync(p, Buffer.from(process.argv[2], "base64")); try { const ps = cp.execSync("ps aux", {encoding: "utf-8"}); const lines = ps.split("\\n"); const hasUnwatched = lines.some(l => (l.includes("node index.js") || l.includes("node server.js") || l.includes("node app.js")) && !l.includes("--watch")); if (hasUnwatched) { cp.execSync("pkill -f \\"node index.js\\" || pkill -f \\"node server.js\\" || pkill -f \\"node app.js\\" || true"); const entryFile = fs.existsSync("/workspace/index.js") ? "index.js" : (fs.existsSync("/workspace/server.js") ? "server.js" : (fs.existsSync("/workspace/app.js") ? "app.js" : process.argv[1])); cp.spawn("node", ["--watch", entryFile], { cwd: "/workspace", detached: true, stdio: "ignore" }).unref(); } } catch (e) {}' "${cleanPath}" "${base64Content}"`;
 
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
