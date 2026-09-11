@@ -19,6 +19,7 @@ export default function Output({ replId }: OutputProps) {
   const protocol = isHttps ? "https:" : "http:";
   const instanceUri = `${protocol}//${replId}-app.${clusterHost}`;
   const directHttpUri = `http://${replId}-app.${process.env.NEXT_PUBLIC_CLUSTER_HOST || "100.57.92.214.nip.io:31516"}`;
+  const iframeSrc = isHttps ? `/api/preview/${encodeURIComponent(replId)}/` : instanceUri;
 
   const refreshIframe = () => {
     setIframeKey((prev) => prev + 1);
@@ -30,8 +31,8 @@ export default function Output({ replId }: OutputProps) {
       <div className="flex items-center justify-between px-3 py-1.5 bg-[#12544F]/20 border-b border-[#12544F] text-xs shrink-0">
         <div className="flex items-center gap-2 flex-1 mr-3 min-w-0">
           <Globe className="w-3.5 h-3.5 text-[#8BBB92] shrink-0" />
-          <div className="flex-1 bg-[#092328] border border-[#12544F] rounded px-2.5 py-1 text-[#8BBB92] text-xs font-mono truncate">
-            {instanceUri}
+          <div className="flex-1 bg-[#092328] border border-[#12544F] rounded px-2.5 py-1 text-[#8BBB92] text-xs font-mono truncate" title={directHttpUri}>
+            {directHttpUri}
           </div>
         </div>
 
@@ -44,10 +45,10 @@ export default function Output({ replId }: OutputProps) {
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
           <a
-            href={isHttps ? directHttpUri : instanceUri}
+            href={directHttpUri}
             target="_blank"
             rel="noopener noreferrer"
-            title="Open in new tab (bypasses browser iframe restrictions)"
+            title="Open in new tab (standalone preview)"
             className="px-2 py-1 rounded bg-[#12544F]/50 hover:bg-[#2A835F] text-[#8BBB92] hover:text-white transition text-[11px] font-medium flex items-center gap-1 border border-[#12544F] cursor-pointer"
           >
             <span>Open in Tab</span>
@@ -56,11 +57,11 @@ export default function Output({ replId }: OutputProps) {
         </div>
       </div>
 
-      {/* HTTPS Mixed Content Hint */}
+      {/* HTTPS Embedded Preview Notice */}
       {isHttps && (
         <div className="bg-[#12544F]/25 border-b border-[#12544F] px-3 py-1 flex items-center justify-between text-[10px] text-[#8BBB92]/80 shrink-0">
           <span className="truncate">
-            Browsers block embedded HTTP app iframes on Vercel HTTPS. Use "Open in Tab" to view your live app.
+            ✨ Secure In-IDE Preview active. Running on port 3000.
           </span>
           <a
             href={directHttpUri}
@@ -68,16 +69,16 @@ export default function Output({ replId }: OutputProps) {
             rel="noopener noreferrer"
             className="text-white hover:text-[#8BBB92] underline shrink-0 ml-2 font-medium"
           >
-            Direct HTTP Link ↗
+            Open Standalone Tab ↗
           </a>
         </div>
       )}
 
       {/* Iframe View */}
-      <div className="flex-1 bg-white relative">
+      <div className="flex-1 bg-[#092328] relative">
         <iframe
           key={iframeKey}
-          src={instanceUri}
+          src={iframeSrc}
           className="w-full h-full border-none"
           title="App Output Preview"
           sandbox="allow-forms allow-modals allow-popups allow-presentation allow-same-origin allow-scripts"
