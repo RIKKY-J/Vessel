@@ -94,8 +94,8 @@ async function handleProxy(
             margin: 0;
             padding: 2rem;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #092328;
-            color: #f8fafc;
+            background: #0B0D11;
+            color: #FFFFFF;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -103,51 +103,54 @@ async function handleProxy(
             box-sizing: border-box;
           }
           .card {
-            background: #12544F33;
-            border: 1px solid #12544F;
+            background: #12151B;
+            border: 1px solid #232936;
             border-radius: 12px;
-            padding: 2rem;
+            padding: 2.2rem;
             max-width: 480px;
             text-align: center;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
           }
           .badge {
             display: inline-block;
-            background: #2A835F26;
-            color: #8BBB92;
-            border: 1px solid #2A835F55;
-            padding: 4px 12px;
+            background: #181C24;
+            color: #E73F1E;
+            border: 1px solid #E73F1E;
+            padding: 4px 14px;
             border-radius: 9999px;
             font-size: 11px;
-            font-weight: 600;
-            margin-bottom: 1rem;
+            font-weight: 700;
+            margin-bottom: 1.2rem;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.06em;
           }
-          h2 { margin: 0 0 0.5rem; color: #f8fafc; font-size: 1.25rem; }
-          p { color: #8BBB92bb; font-size: 0.875rem; line-height: 1.5; margin: 0 0 1.25rem; }
+          h2 { margin: 0 0 0.5rem; color: #FFFFFF; font-size: 1.3rem; font-weight: 700; }
+          p { color: #94A3B8; font-size: 0.875rem; line-height: 1.6; margin: 0 0 1.25rem; }
           code {
             display: block;
-            background: #06191c;
-            border: 1px solid #12544F;
+            background: #0B0D11;
+            border: 1px solid #232936;
             border-radius: 6px;
-            padding: 0.6rem;
+            padding: 0.75rem;
             font-family: monospace;
-            font-size: 0.8rem;
-            color: #8BBB92;
-            margin-bottom: 1rem;
+            font-size: 0.85rem;
+            color: #FFFFFF;
+            margin-bottom: 1.2rem;
           }
           .btn {
             display: inline-block;
-            background: #2A835F;
-            color: white;
-            padding: 6px 16px;
+            background: #E73F1E;
+            color: #FFFFFF;
+            font-weight: 600;
+            padding: 8px 20px;
             border-radius: 6px;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             text-decoration: none;
             cursor: pointer;
+            border: none;
+            transition: background 0.15s;
           }
-          .btn:hover { background: #359f73; }
+          .btn:hover { background: #ff4d29; }
         </style>
       </head>
       <body>
@@ -155,9 +158,9 @@ async function handleProxy(
           <span class="badge">Web Preview Standby</span>
           <h2>Application Server Not Running</h2>
           <p>Your sandbox is active, but nothing is currently listening on port 3000.</p>
-          <p style="font-size: 12px; color: #8BBB92;">Run your application in the terminal below:</p>
+          <p style="font-size: 12px; color: #94A3B8;">Run your application using the Run button or terminal:</p>
           <code>node --watch index.js &</code>
-          <p style="font-size: 11px; margin-bottom: 0;">Once your server starts listening, click the refresh button above.</p>
+          <p style="font-size: 11px; margin-bottom: 0; color: #64748B;">Once your server starts listening, click the refresh button above.</p>
         </div>
       </body>
       </html>

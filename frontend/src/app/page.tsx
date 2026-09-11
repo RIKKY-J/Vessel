@@ -82,34 +82,30 @@ export default function LandingPage() {
   };
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden bg-[#092328]">
-      {/* Subtle background texture */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(42,131,95,0.2)_0%,_transparent_65%)] pointer-events-none" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_rgba(139,187,146,0.12)_0%,_transparent_65%)] pointer-events-none" />
-
+    <main className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden bg-[#0B0D11]">
       <div className="w-full max-w-xl z-10">
         {/* Header */}
         <div className="text-center mb-8">
           {/* Logo + App Name */}
-          <div className="flex items-center justify-center gap-3 mb-5">
-            <img src="/logo.png" alt="Vessel Logo" className="w-12 h-12 object-contain drop-shadow-lg" />
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <img src="/logo.png" alt="Vessel Logo" className="w-12 h-12 object-contain" />
             <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-white">
               Vessel
             </h1>
           </div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#12544F]/50 border border-[#2A835F]/50 text-[#8BBB92] text-xs font-medium mb-3 shadow-sm">
-            <Sparkles className="w-3.5 h-3.5 text-[#8BBB92]" /> Cloud IDE
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#12151B] border border-[#232936] text-white text-xs font-medium mb-3 shadow-sm">
+            <Sparkles className="w-3.5 h-3.5 text-[#E73F1E]" /> Cloud IDE
           </div>
           <p className="text-slate-300 text-sm sm:text-base max-w-md mx-auto">
             Spin up isolated Kubernetes development sandboxes with real-time Monaco editor, bash terminal, and live preview.
           </p>
         </div>
 
-        {/* Card */}
-        <div className="bg-[#12544F]/25 backdrop-blur-xl border border-[#12544F] rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/60">
+        {/* Main Card */}
+        <div className="bg-[#12151B] border border-[#232936] rounded-2xl p-6 sm:p-8 shadow-2xl">
           {/* REPL Identifier */}
           <div className="mb-5">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-[#8BBB92] mb-2">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
               Workspace Identifier (Repl ID)
             </label>
             <div className="flex gap-2">
@@ -118,20 +114,20 @@ export default function LandingPage() {
                 value={replId}
                 onChange={(e) => setReplId(e.target.value)}
                 placeholder="e.g. swift-cyber-orbit"
-                className="flex-1 bg-[#092328] border border-[#12544F] focus:border-[#2A835F] focus:ring-1 focus:ring-[#2A835F] rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 transition outline-none"
+                className="flex-1 bg-[#181C24] border border-[#232936] focus:border-[#E73F1E] focus:ring-1 focus:ring-[#E73F1E] rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 transition outline-none"
               />
               <button
                 type="button"
                 onClick={() => setReplId(getRandomSlug())}
                 title="Generate new ID"
-                className="px-3 py-2.5 bg-[#12544F]/40 hover:bg-[#12544F] text-[#8BBB92] hover:text-white rounded-xl border border-[#12544F] transition flex items-center justify-center cursor-pointer"
+                className="px-3.5 py-2.5 bg-[#181C24] hover:bg-[#232936] text-white rounded-xl border border-[#232936] hover:border-[#E73F1E] transition flex items-center justify-center cursor-pointer"
               >
-                <RefreshCw className="w-4 h-4" />
+                <RefreshCw className="w-4 h-4 text-slate-300 hover:text-white" />
               </button>
             </div>
             {isExisting && (
-              <div className="mt-2.5 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2A835F]/20 border border-[#2A835F]/40 text-[#8BBB92] text-xs font-medium">
-                <FolderGit2 className="w-3.5 h-3.5 shrink-0" />
+              <div className="mt-2.5 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#E73F1E]/15 border border-[#E73F1E]/40 text-white text-xs font-medium">
+                <FolderGit2 className="w-3.5 h-3.5 text-[#E73F1E] shrink-0" />
                 <span>Existing project found in S3 — your saved workspace files will be restored.</span>
               </div>
             )}
@@ -139,7 +135,7 @@ export default function LandingPage() {
 
           {/* Environment / Language selection */}
           <div className="mb-6">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-[#8BBB92] mb-2">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
               Runtime Template
             </label>
             <div className="grid grid-cols-2 gap-3">
@@ -148,15 +144,15 @@ export default function LandingPage() {
                 onClick={() => setLanguage("node-js")}
                 className={`flex items-center gap-3 p-3.5 rounded-xl border transition text-left cursor-pointer ${
                   language === "node-js"
-                    ? "bg-[#2A835F]/25 border-[#2A835F] text-white ring-1 ring-[#2A835F]"
-                    : "bg-[#092328]/80 border-[#12544F] text-slate-300 hover:border-[#2A835F]/60"
+                    ? "bg-[#181C24] border-[#E73F1E] text-white ring-1 ring-[#E73F1E]"
+                    : "bg-[#181C24]/60 border-[#232936] text-slate-300 hover:border-slate-500"
                 }`}
               >
-                <div className="p-2 rounded-lg bg-[#2A835F]/25 text-[#8BBB92]">
+                <div className="p-2 rounded-lg bg-[#E73F1E]/20 text-[#E73F1E]">
                   <Code2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="font-semibold text-sm">Node.js</div>
+                  <div className="font-semibold text-sm text-white">Node.js</div>
                   <div className="text-xs text-slate-400">v20 Runtime</div>
                 </div>
               </button>
@@ -166,15 +162,15 @@ export default function LandingPage() {
                 onClick={() => setLanguage("python")}
                 className={`flex items-center gap-3 p-3.5 rounded-xl border transition text-left cursor-pointer ${
                   language === "python"
-                    ? "bg-[#2A835F]/25 border-[#2A835F] text-white ring-1 ring-[#2A835F]"
-                    : "bg-[#092328]/80 border-[#12544F] text-slate-300 hover:border-[#2A835F]/60"
+                    ? "bg-[#181C24] border-[#E73F1E] text-white ring-1 ring-[#E73F1E]"
+                    : "bg-[#181C24]/60 border-[#232936] text-slate-300 hover:border-slate-500"
                 }`}
               >
-                <div className="p-2 rounded-lg bg-[#12544F]/50 text-[#8BBB92]">
+                <div className="p-2 rounded-lg bg-[#E73F1E]/20 text-[#E73F1E]">
                   <Terminal className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="font-semibold text-sm">Python</div>
+                  <div className="font-semibold text-sm text-white">Python</div>
                   <div className="text-xs text-slate-400">v3 Runtime</div>
                 </div>
               </button>
@@ -182,7 +178,7 @@ export default function LandingPage() {
           </div>
 
           {errorMessage && (
-            <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+            <div className="mb-4 p-3 rounded-lg bg-red-500/15 border border-red-500/30 text-red-300 text-xs">
               {errorMessage}
             </div>
           )}
@@ -192,22 +188,22 @@ export default function LandingPage() {
             type="button"
             disabled={loading}
             onClick={handleStartCoding}
-            className="w-full py-3 px-5 rounded-xl text-white font-medium text-sm flex items-center justify-center gap-2 shadow-lg shadow-[#2A835F]/20 bg-gradient-to-r from-[#2A835F] to-[#12544F] hover:brightness-110 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="w-full py-3 px-5 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 bg-[#E73F1E] hover:bg-[#ff4d29] shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-95"
           >
             {loading ? (
               <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
+                <RefreshCw className="w-4 h-4 animate-spin text-white" />
                 {isExisting ? "Resuming Workspace..." : "Provisioning Sandbox..."}
               </>
             ) : isExisting ? (
               <>
                 Resume Saved Project
-                <ArrowRight className="w-4 h-4 text-[#8BBB92]" />
+                <ArrowRight className="w-4 h-4 text-white" />
               </>
             ) : (
               <>
                 Launch Environment
-                <ArrowRight className="w-4 h-4 text-[#8BBB92]" />
+                <ArrowRight className="w-4 h-4 text-white" />
               </>
             )}
           </button>
@@ -215,19 +211,19 @@ export default function LandingPage() {
 
         {/* Feature badges */}
         <div className="grid grid-cols-3 gap-4 mt-8 text-center">
-          <div className="p-3 rounded-xl bg-[#12544F]/20 border border-[#12544F]/60">
-            <Cpu className="w-4 h-4 text-[#8BBB92] mx-auto mb-1" />
-            <div className="text-xs font-medium text-slate-200">Isolated Pods</div>
+          <div className="p-3 rounded-xl bg-[#12151B] border border-[#232936]">
+            <Cpu className="w-4 h-4 text-[#E73F1E] mx-auto mb-1" />
+            <div className="text-xs font-medium text-white">Isolated Pods</div>
             <div className="text-[10px] text-slate-400">Dedicated K8s Container</div>
           </div>
-          <div className="p-3 rounded-xl bg-[#12544F]/20 border border-[#12544F]/60">
-            <Terminal className="w-4 h-4 text-[#8BBB92] mx-auto mb-1" />
-            <div className="text-xs font-medium text-slate-200">Live PTY Terminal</div>
+          <div className="p-3 rounded-xl bg-[#12151B] border border-[#232936]">
+            <Terminal className="w-4 h-4 text-[#E73F1E] mx-auto mb-1" />
+            <div className="text-xs font-medium text-white">Live PTY Terminal</div>
             <div className="text-[10px] text-slate-400">Low-latency WebSockets</div>
           </div>
-          <div className="p-3 rounded-xl bg-[#12544F]/20 border border-[#12544F]/60">
-            <Code2 className="w-4 h-4 text-[#8BBB92] mx-auto mb-1" />
-            <div className="text-xs font-medium text-slate-200">Monaco Engine</div>
+          <div className="p-3 rounded-xl bg-[#12151B] border border-[#232936]">
+            <Code2 className="w-4 h-4 text-[#E73F1E] mx-auto mb-1" />
+            <div className="text-xs font-medium text-white">Monaco Engine</div>
             <div className="text-[10px] text-slate-400">VS Code editing experience</div>
           </div>
         </div>

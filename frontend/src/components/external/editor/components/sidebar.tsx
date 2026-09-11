@@ -71,11 +71,11 @@ export const Sidebar = ({
   return (
     <aside
       style={width ? { width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` } : undefined}
-      className={`${width ? "" : "w-64"} h-full border-r border-[#12544F] bg-[#092328] overflow-y-auto select-none text-slate-300 flex flex-col shrink-0`}
+      className={`${width ? "" : "w-64"} h-full border-r border-[#232936] bg-[#12151B] overflow-y-auto select-none text-slate-300 flex flex-col shrink-0`}
     >
       {/* Explorer Top Header Bar */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-[#12544F] bg-[#12544F]/20">
-        <span className="text-[11px] font-bold tracking-wider uppercase text-[#8BBB92]">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-[#232936] bg-[#12151B]">
+        <span className="text-[11px] font-bold tracking-wider uppercase text-white">
           Explorer
         </span>
         <div className="flex items-center gap-1">
@@ -86,8 +86,8 @@ export const Sidebar = ({
               setNameInput("");
             }}
             title="New File"
-            className={`p-1 rounded transition text-slate-300 hover:text-white hover:bg-[#12544F]/50 cursor-pointer ${
-              isCreatingFile ? "bg-[#2A835F]/30 text-[#8BBB92]" : ""
+            className={`p-1 rounded transition text-slate-400 hover:text-white hover:bg-[#181C24] cursor-pointer ${
+              isCreatingFile ? "bg-[#181C24] text-[#E73F1E]" : ""
             }`}
           >
             <FilePlus className="w-3.5 h-3.5" />
@@ -99,8 +99,8 @@ export const Sidebar = ({
               setNameInput("");
             }}
             title="New Folder"
-            className={`p-1 rounded transition text-slate-300 hover:text-white hover:bg-[#12544F]/50 cursor-pointer ${
-              isCreatingFolder ? "bg-[#2A835F]/30 text-[#8BBB92]" : ""
+            className={`p-1 rounded transition text-slate-400 hover:text-white hover:bg-[#181C24] cursor-pointer ${
+              isCreatingFolder ? "bg-[#181C24] text-[#E73F1E]" : ""
             }`}
           >
             <FolderPlus className="w-3.5 h-3.5" />
@@ -108,20 +108,20 @@ export const Sidebar = ({
           <button
             onClick={triggerRefresh}
             title="Refresh Explorer"
-            className="p-1 rounded transition text-slate-300 hover:text-white hover:bg-[#12544F]/50 cursor-pointer"
+            className="p-1 rounded transition text-slate-400 hover:text-white hover:bg-[#181C24] cursor-pointer"
           >
-            <RotateCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-[#8BBB92]" : ""}`} />
+            <RotateCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-[#E73F1E]" : ""}`} />
           </button>
         </div>
       </div>
 
       {/* Inline New File / Folder Input */}
       {(isCreatingFile || isCreatingFolder) && (
-        <div className="px-2 py-1.5 bg-[#12544F]/25 border-b border-[#12544F] flex items-center gap-1.5 animate-fadeIn">
+        <div className="px-2 py-1.5 bg-[#181C24] border-b border-[#232936] flex items-center gap-1.5 animate-fadeIn">
           {isCreatingFile ? (
-            <FileCode className="w-4 h-4 text-[#8BBB92] shrink-0 ml-1" />
+            <FileCode className="w-4 h-4 text-[#E73F1E] shrink-0 ml-1" />
           ) : (
-            <Folder className="w-4 h-4 text-[#8BBB92] shrink-0 ml-1" />
+            <Folder className="w-4 h-4 text-[#E73F1E] shrink-0 ml-1" />
           )}
           <input
             ref={inputRef}
@@ -130,19 +130,19 @@ export const Sidebar = ({
             onChange={(e) => setNameInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={isCreatingFile ? "filename.js" : "folder-name"}
-            className="flex-1 bg-[#092328] border border-[#2A835F] rounded px-1.5 py-0.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-[#8BBB92]"
+            className="flex-1 bg-[#0B0D11] border border-[#232936] rounded px-1.5 py-0.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-[#E73F1E]"
           />
           <button
             onClick={handleConfirm}
             title="Create"
-            className="p-1 text-[#8BBB92] hover:text-white hover:bg-[#2A835F]/20 rounded cursor-pointer"
+            className="p-1 text-emerald-400 hover:text-emerald-300 rounded cursor-pointer"
           >
             <Check className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={handleCancel}
             title="Cancel"
-            className="p-1 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded cursor-pointer"
+            className="p-1 text-rose-400 hover:text-rose-300 rounded cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -155,16 +155,16 @@ export const Sidebar = ({
 
         {isEmpty && !isCreatingFile && !isCreatingFolder && (
           <div className="px-4 py-8 text-center flex flex-col items-center justify-center text-slate-500">
-            <FolderGit2 className="w-8 h-8 mb-2 opacity-30 text-[#8BBB92]" />
+            <FolderGit2 className="w-8 h-8 mb-2 opacity-50 text-[#E73F1E]" />
             <p className="text-xs mb-3 text-slate-400">No files in workspace</p>
             <button
               onClick={() => {
                 setIsCreatingFile(true);
                 setNameInput("");
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#2A835F]/20 hover:bg-[#2A835F]/30 text-[#8BBB92] border border-[#2A835F]/40 rounded text-xs font-medium transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#E73F1E]/15 hover:bg-[#E73F1E]/25 text-white border border-[#E73F1E]/40 rounded text-xs font-semibold transition cursor-pointer"
             >
-              <FilePlus className="w-3.5 h-3.5" /> New File
+              <FilePlus className="w-3.5 h-3.5 text-[#E73F1E]" /> New File
             </button>
           </div>
         )}

@@ -59,21 +59,21 @@ export default function Output({ replId, onRun, isRunning }: OutputProps) {
   }, [replId]);
 
   return (
-    <div className="flex flex-col h-full bg-[#092328] border-b border-[#12544F]">
+    <div className="flex flex-col h-full bg-[#0B0D11] border-b border-[#232936]">
       {/* Browser Bar */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-[#12544F]/20 border-b border-[#12544F] text-xs shrink-0">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-[#12151B] border-b border-[#232936] text-xs shrink-0">
         <div className="flex items-center gap-2 flex-1 mr-3 min-w-0">
-          <Globe className="w-3.5 h-3.5 text-[#8BBB92] shrink-0" />
-          <div className="flex-1 bg-[#092328] border border-[#12544F] rounded px-2.5 py-1 text-[#8BBB92] text-xs font-mono truncate" title={directHttpUri}>
+          <Globe className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+          <div className="flex-1 bg-[#0B0D11] border border-[#232936] rounded px-2.5 py-1 text-slate-300 text-xs font-mono truncate" title={directHttpUri}>
             {directHttpUri}
           </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
           {/* Live Sync Status */}
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#12544F]/30 border border-[#12544F]/60 text-[11px]">
-            <Zap className={`w-3 h-3 ${isAutoReloading ? "text-amber-400 animate-bounce" : "text-[#8BBB92]"}`} />
-            <span className={isAutoReloading ? "text-amber-300 font-medium" : "text-[#8BBB92]"}>
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#181C24] border border-[#232936] text-[11px]">
+            <Zap className={`w-3 h-3 ${isAutoReloading ? "text-[#E73F1E] animate-bounce" : "text-[#E73F1E]"}`} />
+            <span className={isAutoReloading ? "text-[#E73F1E] font-medium" : "text-slate-300"}>
               {isAutoReloading ? "Reloading..." : "Live Preview"}
             </span>
           </div>
@@ -83,7 +83,7 @@ export default function Output({ replId, onRun, isRunning }: OutputProps) {
               onClick={onRun}
               disabled={isRunning}
               title="Run & update preview (Ctrl + Enter)"
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white transition text-[11px] font-semibold border border-emerald-400/40 shadow-sm cursor-pointer disabled:opacity-50 active:scale-95"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#E73F1E] hover:bg-[#ff4d29] text-white transition text-[11px] font-bold border border-[#E73F1E] shadow-sm cursor-pointer disabled:opacity-50 active:scale-95"
             >
               <Play className="w-3 h-3 fill-current" />
               <span>{isRunning ? "Running..." : "Run"}</span>
@@ -93,16 +93,16 @@ export default function Output({ replId, onRun, isRunning }: OutputProps) {
           <button
             onClick={refreshIframe}
             title="Reload frame"
-            className="p-1 rounded text-slate-300 hover:text-white hover:bg-[#12544F]/50 transition cursor-pointer"
+            className="p-1 rounded text-slate-300 hover:text-white hover:bg-[#181C24] transition cursor-pointer"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isAutoReloading ? "animate-spin text-amber-300" : ""}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${isAutoReloading ? "animate-spin text-[#E73F1E]" : ""}`} />
           </button>
           <a
             href={directHttpUri}
             target="_blank"
             rel="noopener noreferrer"
             title="Open in new tab (standalone preview)"
-            className="px-2 py-1 rounded bg-[#12544F]/50 hover:bg-[#2A835F] text-[#8BBB92] hover:text-white transition text-[11px] font-medium flex items-center gap-1 border border-[#12544F] cursor-pointer"
+            className="px-2 py-1 rounded bg-[#181C24] hover:bg-[#232936] text-white transition text-[11px] font-medium flex items-center gap-1 border border-[#232936] cursor-pointer"
           >
             <span>Open in Tab</span>
             <ExternalLink className="w-3 h-3" />
@@ -112,15 +112,15 @@ export default function Output({ replId, onRun, isRunning }: OutputProps) {
 
       {/* HTTPS Embedded Preview Notice */}
       {isHttps && (
-        <div className="bg-[#12544F]/25 border-b border-[#12544F] px-3 py-1 flex items-center justify-between text-[10px] text-[#8BBB92]/80 shrink-0">
+        <div className="bg-[#12151B] border-b border-[#232936] px-3 py-1 flex items-center justify-between text-[10px] text-slate-400 shrink-0">
           <span className="truncate">
-            ✨ Secure In-IDE Preview active. Connected to port 3000.
+            ⚡ Secure In-IDE Preview active. Connected to port 3000.
           </span>
           <a
             href={directHttpUri}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-white hover:text-[#8BBB92] underline shrink-0 ml-2 font-medium"
+            className="text-white hover:text-[#E73F1E] underline shrink-0 ml-2 font-medium"
           >
             Open Standalone Tab ↗
           </a>
@@ -128,7 +128,7 @@ export default function Output({ replId, onRun, isRunning }: OutputProps) {
       )}
 
       {/* Iframe View */}
-      <div className="flex-1 bg-[#092328] relative">
+      <div className="flex-1 bg-[#0B0D11] relative">
         <iframe
           key={iframeKey}
           src={iframeSrc}

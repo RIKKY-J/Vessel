@@ -5,17 +5,18 @@
 @import 'xterm/css/xterm.css';
 
 :root {
-  --background: #092328;
-  --foreground: #e6edf3;
-  --vessel-darkest: #092328;
-  --vessel-dark: #12544F;
-  --vessel-primary: #2A835F;
-  --vessel-sage: #8BBB92;
+  --background: #0B0D11;
+  --foreground: #F8FAFC;
+  --vessel-darkest: #0B0D11;
+  --vessel-dark: #12151B;
+  --vessel-surface: #181C24;
+  --vessel-border: #232936;
+  --vessel-primary: #E73F1E;
 }
 
 body {
   color: var(--foreground);
-  background: var(--background);
+  background: #0B0D11;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   margin: 0;
   padding: 0;
@@ -23,7 +24,7 @@ body {
 }
 
 ::selection {
-  background: rgba(42, 131, 95, 0.45);
+  background: rgba(231, 63, 30, 0.45);
   color: #ffffff;
 }
 
@@ -33,12 +34,12 @@ body {
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #092328;
+  background: #0B0D11;
 }
 ::-webkit-scrollbar-thumb {
-  background: #12544F;
+  background: #232936;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #2A835F;
+  background: #E73F1E;
 }

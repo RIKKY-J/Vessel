@@ -32,9 +32,9 @@ export const Code = ({
 
   if (!selectedFile) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-[#092328] text-[#8BBB92]/60 select-none">
-        <Code2 className="w-12 h-12 mb-3 opacity-30 text-[#8BBB92]" />
-        <p className="text-sm">Select a file from the explorer to begin editing</p>
+      <div className="flex-1 flex flex-col items-center justify-center bg-[#0B0D11] text-slate-400 select-none">
+        <Code2 className="w-12 h-12 mb-3 text-[#E73F1E] opacity-60" />
+        <p className="text-sm text-slate-300">Select a file from the explorer to begin editing</p>
       </div>
     );
   }
@@ -53,29 +53,29 @@ export const Code = ({
   else if (language === "yaml" || language === "yml") language = "yaml";
 
   const handleEditorWillMount = (monaco: any) => {
-    monaco.editor.defineTheme("vessel-forest", {
+    monaco.editor.defineTheme("vessel-dark", {
       base: "vs-dark",
       inherit: true,
       rules: [
-        { token: "comment", foreground: "628c6e", fontStyle: "italic" },
-        { token: "keyword", foreground: "8BBB92", fontStyle: "bold" },
-        { token: "string", foreground: "a6d9ab" },
-        { token: "number", foreground: "80dfa2" },
-        { token: "type", foreground: "8BBB92" },
-        { token: "function", foreground: "b5e8bd" },
-        { token: "variable", foreground: "e6edf3" },
+        { token: "comment", foreground: "64748b", fontStyle: "italic" },
+        { token: "keyword", foreground: "E73F1E", fontStyle: "bold" },
+        { token: "string", foreground: "e2e8f0" },
+        { token: "number", foreground: "fdba74" },
+        { token: "type", foreground: "cbd5e1" },
+        { token: "function", foreground: "ffffff", fontStyle: "bold" },
+        { token: "variable", foreground: "f8fafc" },
       ],
       colors: {
-        "editor.background": "#092328",
-        "editor.foreground": "#e6edf3",
-        "editor.lineHighlightBackground": "#12544F22",
-        "editorLineNumber.foreground": "#12544F",
-        "editorLineNumber.activeForeground": "#8BBB92",
-        "editorCursor.foreground": "#8BBB92",
-        "editor.selectionBackground": "#2A835F55",
-        "editorIndentGuide.background": "#12544F33",
-        "editorIndentGuide.activeBackground": "#2A835F88",
-        "editorGutter.background": "#092328",
+        "editor.background": "#0B0D11",
+        "editor.foreground": "#f8fafc",
+        "editor.lineHighlightBackground": "#181C24",
+        "editorLineNumber.foreground": "#475569",
+        "editorLineNumber.activeForeground": "#E73F1E",
+        "editorCursor.foreground": "#E73F1E",
+        "editor.selectionBackground": "#E73F1E35",
+        "editorIndentGuide.background": "#232936",
+        "editorIndentGuide.activeBackground": "#475569",
+        "editorGutter.background": "#0B0D11",
       },
     });
   };
@@ -134,12 +134,12 @@ export const Code = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#092328] overflow-hidden">
+    <div className="flex-1 flex flex-col h-full bg-[#0B0D11] overflow-hidden">
       {/* File Header Bar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-[#12544F]/20 border-b border-[#12544F] text-xs font-mono text-slate-300">
+      <div className="flex items-center justify-between px-4 py-2 bg-[#12151B] border-b border-[#232936] text-xs font-mono text-slate-300">
         <div className="flex items-center gap-2 truncate">
-          <span className="text-[#8BBB92] font-semibold">{selectedFile.name}</span>
-          <span className="text-[#8BBB92]/60 text-[11px] truncate">({selectedFile.path})</span>
+          <span className="text-white font-semibold">{selectedFile.name}</span>
+          <span className="text-slate-400 text-[11px] truncate">({selectedFile.path})</span>
         </div>
         <div className="flex items-center gap-3 text-[11px] text-slate-400 select-none">
           <span className="flex items-center gap-1.5 font-sans">
@@ -150,19 +150,19 @@ export const Code = ({
               </>
             ) : (
               <>
-                <span className="w-2 h-2 rounded-full bg-[#8BBB92]" />
-                <span className="text-[#8BBB92] font-medium">Sandbox Synced (Live)</span>
+                <span className="w-2 h-2 rounded-full bg-[#E73F1E]" />
+                <span className="text-white font-medium">Sandbox Synced (Live)</span>
               </>
             )}
           </span>
-          <span className="px-1.5 py-0.5 rounded bg-[#12544F]/50 text-[#8BBB92] border border-[#12544F] text-[10px] uppercase font-sans">
+          <span className="px-1.5 py-0.5 rounded bg-[#181C24] text-white border border-[#232936] text-[10px] uppercase font-sans">
             {language}
           </span>
         </div>
       </div>
 
       {/* Monaco Editor Container */}
-      <div className="flex-1 relative bg-[#092328]">
+      <div className="flex-1 relative bg-[#0B0D11]">
         <Editor
           key={selectedFile.path}
           path={selectedFile.path}
@@ -170,7 +170,7 @@ export const Code = ({
           language={language}
           value={code}
           beforeMount={handleEditorWillMount}
-          theme="vessel-forest"
+          theme="vessel-dark"
           options={{
             minimap: { enabled: false },
             fontSize: 13,
