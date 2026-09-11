@@ -1,17 +1,20 @@
-# Vessel(PodForge) — In-Browser Cloud IDE & Sandbox
+# Vessel — In-Browser Cloud IDE & Sandbox Platform
 
-A cloud-based interactive development environment (IDE) and REPL platform. It enables users to create a project in their browser, spin up an isolated Kubernetes container on-demand, edit code via Monaco Editor, execute commands in an interactive bash terminal over WebSockets, and preview live web applications.
+Vessel is a modern, high-performance cloud development environment (IDE) and REPL platform. It enables developers to spin up isolated Kubernetes sandboxes on demand, edit code with Monaco Editor, interact with a low-latency bash terminal, and preview running web applications directly in the browser.
 
 ---
 
 ## 🚀 Key Features
 
-* **⚡ Unified Next.js 14 App Router**: Clean, modern architecture consolidating the frontend UI, S3 project initialization, and Kubernetes pod orchestration into a single Next.js application.
-* **💻 Monaco Code Editor**: Full-featured in-browser code editor with syntax highlighting, automatic layout, and file-tree exploration.
-* **🖥️ Interactive PTY Terminal**: Low-latency pseudo-terminal (`/bin/bash`) streaming bi-directionally over WebSockets powered by `xterm.js` and `node-pty`.
-* **🌐 Live Web Preview**: Real-time iframe preview connected to user-run servers inside their sandbox on port `3000`.
-* **☸️ Kubernetes Sandboxes**: Each REPL session is provisioned as an isolated Kubernetes Pod with dedicated resource limits and an emptyDir workspace.
-* **☁️ Object Storage Persistence**: Boilerplate templates and project files are synchronized with AWS S3 (or S3-compatible alternatives like Cloudflare R2 or MinIO).
+* **🖥️ Native Interactive Terminal**: Direct typing in `xterm.js` backed by real-time `node-pty` over WebSockets, with dual-mode fallback to Kubernetes API execution (`stdout`, `stderr`, and ANSI color rendering).
+* **⚡ Pre-Installed Runtimes & Modules**: Sandboxes come pre-configured with Node.js 20, Python 3, and pre-cached core libraries (`express`, `cors`, `dotenv`) via configured `NODE_PATH`.
+* **⚙️ Configurable Run Button**: Split Run control (`[ ▶ Run | ⚙ ]`) with a settings popover to customize start commands per project (e.g. `node --watch index.js`, `npm run dev`, `npx next dev -p 3000`, `python3 main.py`).
+* **🌐 Real-Time Web Preview**: Live browser viewport connected to user-run servers on port `3000` with automatic reloading on file update and external tab launching.
+* **💻 Monaco Code Editor**: Full-featured code editor with syntax highlighting, file explorer, active tab persistence, and keyboard shortcuts (`Ctrl+Enter` to Run).
+* **🔒 Email & Password Authentication**: Secure user management with PBKDF2 password hashing, 12-hour sessions, and a user project management dashboard (`/projects`).
+* **☸️ Isolated Kubernetes Sandboxes**: Each project runs in a sandboxed Kubernetes Pod with dedicated CPU/memory limits, ephemeral disk, and ingress routing.
+* **☁️ Object Storage Persistence**: Synchronizes workspace files to S3-compatible object storage (AWS S3, Cloudflare R2, MinIO) upon file change or tab exit.
+* **🎨 Solid Dark Modern Theme**: Sleek `#0B0D11` background, `#232936` borders, `#E73F1E` flame-red accents, and crisp pure white typography.
 
 ---
 
@@ -21,10 +24,13 @@ A cloud-based interactive development environment (IDE) and REPL platform. It en
 ┌────────────────────────────────────────────────────────────────────────┐
 │                              USER BROWSER                              │
 │                                                                        │
-│   Landing Page (/)                          Coding Workspace (/coding) │
-│    - Select Language (Node/Python)           - Monaco Code Editor      │
-│    - Generate / Enter replId                 - XTerm.js Terminal       │
-│                                              - Web Preview Iframe      │
+│   Landing Page (/)          Auth (/signin)        Projects (/projects) │
+│    • Feature overview        • Login / Signup      • View & launch     │
+│    • Launch sandbox          • 12-hr session       • Delete projects   │
+│                                                                        │
+│                       IDE Workspace (/coding)                          │
+│    • Monaco Editor           • Live Web Preview (Port 3000)            │
+│    • Native Terminal (PTY)   • Split Run Controls (▶ / ⚙)              │
 └───────────────────┬──────────────────────────────────┬─────────────────┘
                     │                                  │
     (1) POST /api/project                              │ (3) WebSockets (3001)
@@ -33,22 +39,25 @@ A cloud-based interactive development environment (IDE) and REPL platform. It en
 ┌─────────────────────────────────────────┐            │
 │         NEXT.JS 14 APPLICATION          │            │
 │                                         │            │
-│  • UI Routes (/ & /coding)              │            │
-│  • API: /api/project (S3 init)          │            │
-│  • API: /api/start (K8s orchestrator)   │            │
+│  • App Router Pages (/, /coding, etc.)  │            │
+│  • Auth APIs: /api/auth/{login,signup}  │            │
+│  • Sandbox APIs: /api/{start,status}    │            │
+│  • Terminal Exec: /api/terminal/exec    │            │
+│  • File APIs: /api/file/{save,sync-s3}  │            │
+│  • Preview Proxy: /api/preview/[replId] │            │
 └─────────────┬─────────────────────┬─────┘            │
               │                     │                  │
-    (1) Copies Template             │ (2) POST /api/start
+    (1) Copies Template             │ (2) Provisions   │
               ▼                     ▼                  ▼
 ┌───────────────────────┐   ┌────────────────────────────────────────────┐
 │    AWS S3 STORAGE     │   │             KUBERNETES CLUSTER             │
 │                       │   │                                            │
-│ base/{language}/      │   │  Pod: replId                               │
+│ base/{language}/      │   │  Pod: {replId}                             │
 │       │               │   │   ├── InitContainer: Pulls S3 to /workspace│
-│       ▼               │   │   └── Runner Container (100xdevs/runner)   │
+│       ▼               │   │   └── Runner Container (node:20)           │
 │ code/{replId}/ ───────┼───┼──────► • WebSocket Server (Port 3001)      │
-│                       │   │        • Terminal Daemon (node-pty)        │
-│                       │   │        • User Web App (Port 3000)          │
+│                       │   │        • Interactive PTY (node-pty bash)   │
+│ users/{email}/        │   │        • User Web Application (Port 3000)  │
 └───────────────────────┘   └────────────────────────────────────────────┘
 ```
 
@@ -58,26 +67,41 @@ A cloud-based interactive development environment (IDE) and REPL platform. It en
 
 ```
 good-code/
-├── frontend/               # Next.js 14 App Router Application
+├── frontend/                     # Next.js 14 App Router Application
 │   ├── src/app/
-│   │   ├── page.tsx        # Landing page (runtime selection & slug generator)
-│   │   ├── coding/page.tsx # IDE workspace (Monaco + Terminal + Preview)
-│   │   ├── api/project/    # API Route: initializes project files in S3
-│   │   └── api/start/      # API Route: provisions K8s pod, service, ingress
-│   ├── src/components/     # Monaco Editor, XTerm Terminal, Output Preview
-│   └── src/lib/            # AWS S3 and Kubernetes client helpers
+│   │   ├── page.tsx              # Landing page (features, live demo, launch)
+│   │   ├── signin/page.tsx       # Auth page (Email/Password login & signup)
+│   │   ├── projects/page.tsx     # User projects dashboard & manager
+│   │   ├── coding/page.tsx       # Workspace IDE (Monaco + Terminal + Preview)
+│   │   └── api/
+│   │       ├── auth/             # PBKDF2 authentication endpoints
+│   │       ├── project/          # Project creation and S3 template copier
+│   │       ├── start/ & stop/    # Kubernetes pod lifecycle orchestration
+│   │       ├── status/           # Real-time pod readiness checker
+│   │       ├── terminal/exec/    # Direct fallback container command executor
+│   │       ├── file/             # File content, pod write, and S3 sync
+│   │       └── preview/          # Web preview proxy route
+│   ├── src/components/
+│   │   ├── Editor.tsx            # Monaco editor integration
+│   │   ├── NativeTerminal.tsx    # Direct interactive xterm.js PTY & exec terminal
+│   │   └── Output.tsx            # Live web preview + Run command settings popover
+│   └── src/lib/
+│       ├── k8s.ts                # Kubernetes API client (Pods, Services, Ingress)
+│       └── s3.ts                 # AWS S3 client and user auth store
 │
-├── runner/                 # Sandboxed Container Daemon (Runs inside K8s pod)
-│   ├── Dockerfile          # Builds the runner container (node:20)
-│   ├── src/ws.ts           # Socket.IO handlers for file sync and terminal
-│   ├── src/pty.ts          # node-pty pseudo-terminal wrapper for bash
-│   └── src/fs.ts           # Container file system operations
+├── runner/                       # Sandbox Daemon (Runs inside Kubernetes pod)
+│   ├── Dockerfile                # Runner image build with pre-cached modules
+│   ├── src/index.ts              # Express HTTP server & shutdown handlers
+│   ├── src/ws.ts                 # Socket.IO WebSocket handlers
+│   ├── src/pty.ts                # node-pty pseudo-terminal wrapper for bash
+│   └── src/fs.ts                 # Container filesystem operations & sync
 │
-├── k8s/                    # Cluster Configuration
-│   └── ingress-controller.yaml # NGINX Ingress Controller manifest
+├── templates/                    # Starter project boilerplate
+│   ├── node-js/                  # Node.js starter (index.js, package.json)
+│   └── python/                   # Python starter (main.py)
 │
-├── init-service/           # [Legacy reference - now unified into Next.js /api/project]
-└── orchestrator-simple/    # [Legacy reference - now unified into Next.js /api/start]
+└── scripts/                      # Utility scripts
+    └── seed-s3.js                # Seed starter templates into S3 bucket
 ```
 
 ---
@@ -86,79 +110,86 @@ good-code/
 
 | Layer | Technologies |
 | :--- | :--- |
-| **Frontend UI** | Next.js 14, React 18, TypeScript, Tailwind CSS, Lucide Icons |
-| **Editor & Shell** | `@monaco-editor/react`, `xterm.js`, `xterm-addon-fit` |
-| **Real-time Comms** | `socket.io-client` & `socket.io` |
-| **Server APIs** | Next.js Route Handlers (`/api/project`, `/api/start`) |
-| **Sandboxed Runner**| Node.js 20, Express, `node-pty`, Docker |
-| **Orchestration** | Kubernetes (`@kubernetes/client-node`), NGINX Ingress |
-| **Object Storage** | AWS S3 |
+| **Frontend Framework** | Next.js 14 (App Router), React 18, TypeScript |
+| **Styling & Icons** | Tailwind CSS, Lucide React, Custom Dark Theme (`#0B0D11`, `#E73F1E`) |
+| **Code Editor** | `@monaco-editor/react` with custom `"vessel-dark"` syntax theme |
+| **Terminal Viewport** | `xterm.js`, `xterm-addon-fit`, UTF-8 `TextDecoder` |
+| **Terminal Daemon** | `node-pty` (`/bin/bash`, `TERM=xterm-256color`) |
+| **Real-time Networking**| `socket.io-client` & `socket.io` over WebSockets |
+| **Orchestration** | Kubernetes (`@kubernetes/client-node`), AWS EKS, NGINX Ingress |
+| **Object Storage** | AWS S3 SDK v2/v3 (Templates, workspaces, user accounts) |
 
 ---
 
-## ⚙️ Environment Variables & Setup
+## ⚙️ Environment Variables
 
-### 1. Object Storage (S3 / R2 / MinIO) Configuration
-Create `frontend/.env.local` (see `frontend/.env.example`):
+Create `.env` in the project root or inside `frontend/.env`:
+
 ```ini
-S3_BUCKET=your-s3-bucket-name
-AWS_ACCESS_KEY_ID=your_aws_access_key_id
-AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
+# AWS / S3 Configuration
+S3_BUCKET=your-vessel-bucket
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_REGION=us-east-1
 S3_ENDPOINT=https://s3.amazonaws.com
-# Optional: Set custom runner WebSocket URL for local testing
+
+# Kubernetes Cluster Configuration (Base64-encoded kubeconfig for cloud/Vercel)
+KUBECONFIG_DATA=<base64-encoded-kubeconfig>
+
+# Cluster Ingress Host & Ports
+NEXT_PUBLIC_CLUSTER_HOST=100.57.92.214.nip.io:31516
+NEXT_PUBLIC_CLUSTER_HTTPS_HOST=100.57.92.214.nip.io:31754
+
+# Optional local overrides:
 # NEXT_PUBLIC_RUNNER_WS_URL=ws://localhost:3001
 ```
 
-Also set the same S3 credentials in `runner/.env`:
-```ini
-S3_BUCKET=your-s3-bucket-name
-AWS_ACCESS_KEY_ID=your_aws_access_key_id
-AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
-S3_ENDPOINT=https://s3.amazonaws.com
-```
-
-### 2. S3 Bucket Folder Structure
-Before launching workspaces, ensure your S3 bucket has starter templates:
-```
-your-s3-bucket-name/
-  └── base/
-       ├── node-js/     # Starter package.json, index.js
-       └── python/      # Starter main.py, requirements.txt
-```
-
-### 3. Kubernetes Setup
-* Make sure you have a working Kubernetes cluster (e.g. Minikube, Kind, Docker Desktop, or managed EKS/GKE).
-* Ensure `~/.kube/config` is configured with permissions to create Deployments, Services, and Ingresses in the `default` namespace.
-* Install the NGINX Ingress controller:
-  ```bash
-  kubectl apply -f k8s/ingress-controller.yaml
-  ```
-
 ---
 
-## 🏃 Running Locally
+## 🏃 Getting Started Locally
 
-### Step 1: Run the Next.js App
+### 1. Install Frontend Dependencies
 ```bash
 cd frontend
 npm install
+```
+
+### 2. Seed Starter Templates to S3
+Ensure your S3 bucket has the starter templates uploaded:
+```bash
+node ../scripts/seed-s3.js
+```
+Or manually verify the bucket contains:
+```
+your-bucket/
+  └── base/
+       ├── node-js/     # package.json, index.js
+       └── python/      # main.py
+```
+
+### 3. Run the Development Server
+```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) to view the landing page.
+Open [http://localhost:3000](http://localhost:3000) to view Vessel.
 
-### Step 2: Build the Runner Docker Image
-Inside `runner/`:
-```bash
-cd runner
-docker build -t 100xdevs/runner:latest .
-```
-*(If testing on Minikube or Kind, load the image into your cluster using `minikube image load 100xdevs/runner:latest` or `kind load docker-image 100xdevs/runner:latest`).*
+---
 
-### Step 3: Test a REPL Session
-1. Navigate to `http://localhost:3000`.
-2. Choose **Node.js** or **Python** runtime.
-3. Click **Launch Environment**.
-4. The workspace will initialize the S3 folder, provision the pod, and open the Monaco Editor and bash terminal.
+## 💡 Using the Workspace
+
+1. **Sign In / Create Account**:
+   - Visit `/signin` and create an account with email and password.
+   - You will be redirected to the **Projects Dashboard** (`/projects`).
+2. **Launch a Project**:
+   - Click **Create Project** or launch an existing project.
+   - Vessel provisions an isolated sandbox pod in Kubernetes and mounts workspace files from S3.
+3. **Interactive Terminal**:
+   - Click into the terminal and type bash commands directly (`ls`, `node -v`, `npm install <pkg>`).
+   - Supports arrow-key navigation, tab completion, and ANSI colors.
+4. **Configuring the Run Command**:
+   - Next to the **▶ Run** button in the preview toolbar, click the **`⚙`** icon.
+   - Enter your start command (e.g. `node --watch index.js` or `cd my-app && npx next dev -p 3000`).
+   - Press **`Ctrl+Enter`** or click **`▶ Run`** to execute and reload the preview.
 
 ---
 
