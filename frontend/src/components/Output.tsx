@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { RefreshCw, ExternalLink, Globe, Zap } from "lucide-react";
+import { RefreshCw, ExternalLink, Globe, Zap, Play } from "lucide-react";
 
 interface OutputProps {
   replId: string;
+  onRun?: () => void;
+  isRunning?: boolean;
 }
 
-export default function Output({ replId }: OutputProps) {
+export default function Output({ replId, onRun, isRunning }: OutputProps) {
   const [iframeKey, setIframeKey] = useState(0);
   const [isAutoReloading, setIsAutoReloading] = useState(false);
   const reloadTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -75,6 +77,18 @@ export default function Output({ replId }: OutputProps) {
               {isAutoReloading ? "Reloading..." : "Live Preview"}
             </span>
           </div>
+
+          {onRun && (
+            <button
+              onClick={onRun}
+              disabled={isRunning}
+              title="Run & update preview (Ctrl + Enter)"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white transition text-[11px] font-semibold border border-emerald-400/40 shadow-sm cursor-pointer disabled:opacity-50 active:scale-95"
+            >
+              <Play className="w-3 h-3 fill-current" />
+              <span>{isRunning ? "Running..." : "Run"}</span>
+            </button>
+          )}
 
           <button
             onClick={refreshIframe}

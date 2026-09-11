@@ -17,6 +17,7 @@ import {
   AlertCircle,
   Square,
   Save,
+  Play,
 } from "lucide-react";
 import Output from "@/components/Output";
 
@@ -67,6 +68,54 @@ function WorkspaceInner() {
 
   const [isStopping, setIsStopping] = useState(false);
   const [stopMessage, setStopMessage] = useState<string>("Saving project to S3...");
+  const [isRunning, setIsRunning] = useState(false);
+
+  // Run user application and auto-reload preview
+  const handleRunProject = async () => {
+    if (isRunning || !replId) return;
+    setIsRunning(true);
+
+    try {
+      // 1. If currently in 'code' view, auto switch to 'split' so user sees preview
+      if (viewMode === "code") {
+        setViewMode("split");
+      }
+
+      // 2. Call /api/run with active file content
+      await axios.post("/api/run", {
+        replId,
+        path: selectedFile?.path,
+        content: selectedFile?.content,
+      });
+
+      // 3. Trigger preview iframe auto-reload
+      setTimeout(() => {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("vessel:file-updated", {
+              detail: { replId, path: selectedFile?.path },
+            })
+          );
+        }
+        setIsRunning(false);
+      }, 500);
+    } catch (err) {
+      console.warn("[Workspace] Error running project:", err);
+      setIsRunning(false);
+    }
+  };
+
+  // Keyboard shortcut: Ctrl+Enter or Cmd+Enter to Run
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        handleRunProject();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [replId, selectedFile, isRunning, viewMode]);
 
   // Persist dirty files to S3 on tab exit or close
   useEffect(() => {
@@ -570,6 +619,28 @@ function WorkspaceInner() {
               {replId}
             </span>
           </div>
+
+          {/* Primary Run Button */}
+          <button
+            onClick={handleRunProject}
+            disabled={isRunning || isStopping}
+            title="Run application & update preview (Ctrl + Enter)"
+            className={`flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-semibold shadow-md transition cursor-pointer border select-none ${
+              isRunning
+                ? "bg-[#2A835F]/60 text-white/80 border-[#2A835F] cursor-wait"
+                : "bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400/50 hover:shadow-lg hover:shadow-emerald-600/30 active:scale-95"
+            }`}
+          >
+            {isRunning ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+            ) : (
+              <Play className="w-3.5 h-3.5 fill-current text-white" />
+            )}
+            <span>{isRunning ? "Running..." : "Run"}</span>
+            <span className="hidden md:inline-block text-[10px] opacity-75 bg-black/25 px-1.5 py-0.2 rounded font-mono font-normal">
+              Ctrl ↵
+            </span>
+          </button>
         </div>
 
         {/* View Mode Switcher */}
@@ -687,7 +758,7 @@ function WorkspaceInner() {
             }}
             className="flex-col w-full overflow-hidden shrink-0 min-h-0"
           >
-            <Output replId={replId} />
+            <Output replId={replId} onRun={handleRunProject} isRunning={isRunning} />
           </div>
 
           {/* Horizontal Divider (Preview <-> Terminal) */}

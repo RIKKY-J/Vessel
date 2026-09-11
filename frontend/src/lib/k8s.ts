@@ -499,3 +499,57 @@ export async function writeFileToPod(
   });
 }
 
+export async function restartPodApp(
+  replId: string,
+  namespace: string = "default"
+): Promise<{ success: boolean; message: string }> {
+  const { coreV1Api, kubeconfig } = getKubeClients();
+  const res = await coreV1Api.listNamespacedPod(
+    namespace,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    `app=${replId}`
+  );
+
+  const pod = res.body.items[0];
+  if (!pod || !pod.metadata?.name) {
+    throw new Error(`Running sandbox pod for project "${replId}" was not found.`);
+  }
+  const podName = pod.metadata.name;
+
+  const restartScript = `node -e 'const cp = require("child_process"), fs = require("fs"); const ps = cp.execSync("ps -eo pid,cmd", { encoding: "utf-8" }); const myPid = process.pid; for (const line of ps.split("\\n")) { const trimmed = line.trim(); if (!trimmed) continue; const [pidStr, ...cmdParts] = trimmed.split(/\\s+/); const cmd = cmdParts.join(" "); const pid = parseInt(pidStr, 10); if (pid !== 1 && pid !== myPid && (cmd.includes("workspace") || cmd.includes("--watch") || cmd.includes("npm start") || cmd.includes("python3 main.py") || cmd === "node index.js" || (cmd.includes("index.js") && !cmd.includes("dist/")))) { try { process.kill(pid, "SIGKILL"); } catch (e) {} } } const isPython = fs.existsSync("/workspace/main.py") && !fs.existsSync("/workspace/package.json"); const child = cp.spawn(isPython ? "python3" : "node", isPython ? ["main.py"] : ["--watch", "index.js"], { cwd: "/workspace", detached: true, stdio: "ignore" }); child.unref();'`;
+
+  const exec = new Exec(kubeconfig);
+  const stdoutStream = new PassThrough();
+  const stderrStream = new PassThrough();
+
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      resolve({ success: true, message: "Restart command dispatched" });
+    }, 10000);
+
+    exec
+      .exec(
+        namespace,
+        podName,
+        "runner",
+        ["/bin/sh", "-c", restartScript],
+        stdoutStream,
+        stderrStream,
+        null,
+        false,
+        () => {
+          clearTimeout(timeout);
+          resolve({ success: true, message: "Application restarted successfully on port 3000" });
+        }
+      )
+      .catch((err: any) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+  });
+}
+
+
