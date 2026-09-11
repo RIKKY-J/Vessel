@@ -339,7 +339,7 @@ export default function NativeTerminal({ socket, replId }: TerminalProps) {
     { label: "pwd", cmd: "pwd" },
     { label: "node -v", cmd: "node -v" },
     { label: "python3 --version", cmd: "python3 --version" },
-    { label: "node index.js &", cmd: "node index.js &" },
+    { label: "node --watch index.js &", cmd: "node --watch index.js &" },
     { label: "clear", cmd: "clear" },
   ];
 

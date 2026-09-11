@@ -156,7 +156,7 @@ async function handleProxy(
           <h2>Application Server Not Running</h2>
           <p>Your sandbox is active, but nothing is currently listening on port 3000.</p>
           <p style="font-size: 12px; color: #8BBB92;">Run your application in the terminal below:</p>
-          <code>node index.js &</code>
+          <code>node --watch index.js &</code>
           <p style="font-size: 11px; margin-bottom: 0;">Once your server starts listening, click the refresh button above.</p>
         </div>
       </body>

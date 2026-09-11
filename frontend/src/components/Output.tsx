@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { RefreshCw, ExternalLink, Globe } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { RefreshCw, ExternalLink, Globe, Zap } from "lucide-react";
 
 interface OutputProps {
   replId: string;
@@ -9,6 +9,9 @@ interface OutputProps {
 
 export default function Output({ replId }: OutputProps) {
   const [iframeKey, setIframeKey] = useState(0);
+  const [isAutoReloading, setIsAutoReloading] = useState(false);
+  const reloadTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
   
   // Choose HTTPS port 31754 if on HTTPS, or HTTP port 31516
@@ -25,6 +28,34 @@ export default function Output({ replId }: OutputProps) {
     setIframeKey((prev) => prev + 1);
   };
 
+  // Real-time auto-reload listener on file update
+  useEffect(() => {
+    const handleFileUpdated = (event: any) => {
+      const updatedReplId = event?.detail?.replId;
+      if (updatedReplId && updatedReplId !== replId) return;
+
+      setIsAutoReloading(true);
+      if (reloadTimerRef.current) {
+        clearTimeout(reloadTimerRef.current);
+      }
+
+      // Wait 600ms for node/server to restart or file to be flushed
+      reloadTimerRef.current = setTimeout(() => {
+        setIframeKey((prev) => prev + 1);
+        setIsAutoReloading(false);
+      }, 600);
+    };
+
+    window.addEventListener("vessel:file-updated", handleFileUpdated);
+
+    return () => {
+      window.removeEventListener("vessel:file-updated", handleFileUpdated);
+      if (reloadTimerRef.current) {
+        clearTimeout(reloadTimerRef.current);
+      }
+    };
+  }, [replId]);
+
   return (
     <div className="flex flex-col h-full bg-[#092328] border-b border-[#12544F]">
       {/* Browser Bar */}
@@ -36,13 +67,21 @@ export default function Output({ replId }: OutputProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Live Sync Status */}
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#12544F]/30 border border-[#12544F]/60 text-[11px]">
+            <Zap className={`w-3 h-3 ${isAutoReloading ? "text-amber-400 animate-bounce" : "text-[#8BBB92]"}`} />
+            <span className={isAutoReloading ? "text-amber-300 font-medium" : "text-[#8BBB92]"}>
+              {isAutoReloading ? "Reloading..." : "Live Preview"}
+            </span>
+          </div>
+
           <button
             onClick={refreshIframe}
             title="Reload frame"
             className="p-1 rounded text-slate-300 hover:text-white hover:bg-[#12544F]/50 transition cursor-pointer"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
+            <RefreshCw className={`w-3.5 h-3.5 ${isAutoReloading ? "animate-spin text-amber-300" : ""}`} />
           </button>
           <a
             href={directHttpUri}
@@ -61,7 +100,7 @@ export default function Output({ replId }: OutputProps) {
       {isHttps && (
         <div className="bg-[#12544F]/25 border-b border-[#12544F] px-3 py-1 flex items-center justify-between text-[10px] text-[#8BBB92]/80 shrink-0">
           <span className="truncate">
-            ✨ Secure In-IDE Preview active. Running on port 3000.
+            ✨ Secure In-IDE Preview active. Connected to port 3000.
           </span>
           <a
             href={directHttpUri}
@@ -87,4 +126,3 @@ export default function Output({ replId }: OutputProps) {
     </div>
   );
 }
-

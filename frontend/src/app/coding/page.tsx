@@ -53,6 +53,7 @@ function WorkspaceInner() {
   const [fileStructure, setFileStructure] = useState<RemoteFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | undefined>(undefined);
   const fileContentsRef = useRef<Record<string, string>>({});
+  const dirtyFilesRef = useRef<Set<string>>(new Set());
 
   // Split layout state
   const [viewMode, setViewMode] = useState<ViewMode>("split");
@@ -66,6 +67,44 @@ function WorkspaceInner() {
 
   const [isStopping, setIsStopping] = useState(false);
   const [stopMessage, setStopMessage] = useState<string>("Saving project to S3...");
+
+  // Persist dirty files to S3 on tab exit or close
+  useEffect(() => {
+    if (!replId) return;
+
+    const handleTabExit = () => {
+      if (dirtyFilesRef.current.size === 0) return;
+      const filesToSave = Array.from(dirtyFilesRef.current).map((filePath) => ({
+        path: filePath,
+        content: fileContentsRef.current[filePath] ?? "",
+      }));
+
+      const payload = JSON.stringify({
+        replId,
+        files: filesToSave,
+      });
+
+      // Browser keepalive fetch ensures request completes even as tab closes
+      try {
+        fetch("/api/file/sync-s3", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: payload,
+          keepalive: true,
+        });
+      } catch (err) {
+        console.warn("[Workspace] Error syncing to S3 on tab exit:", err);
+      }
+    };
+
+    window.addEventListener("beforeunload", handleTabExit);
+    window.addEventListener("pagehide", handleTabExit);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleTabExit);
+      window.removeEventListener("pagehide", handleTabExit);
+    };
+  }, [replId]);
 
   // Preload project files from S3 immediately on mount
   useEffect(() => {
@@ -115,16 +154,31 @@ function WorkspaceInner() {
     setIsStopping(true);
     setStopMessage("Persisting all workspace files to S3...");
 
-    // 1. Persist active file to S3
-    if (selectedFile && selectedFile.content !== undefined) {
-      try {
-        await axios.post("/api/file/save", {
-          replId,
-          path: selectedFile.path,
-          content: selectedFile.content,
+    // 1. Gather all modified files to persist to S3
+    const filesToSync: { path: string; content: string }[] = [];
+    if (dirtyFilesRef.current.size > 0) {
+      dirtyFilesRef.current.forEach((filePath) => {
+        filesToSync.push({
+          path: filePath,
+          content: fileContentsRef.current[filePath] ?? "",
         });
+      });
+    } else if (selectedFile && selectedFile.content !== undefined) {
+      filesToSync.push({
+        path: selectedFile.path,
+        content: selectedFile.content,
+      });
+    }
+
+    if (filesToSync.length > 0) {
+      try {
+        await axios.post("/api/file/sync-s3", {
+          replId,
+          files: filesToSync,
+        });
+        dirtyFilesRef.current.clear();
       } catch (e) {
-        console.warn("[Close] Error saving active file to S3:", e);
+        console.warn("[Close] Error syncing files to S3:", e);
       }
     }
 
@@ -329,6 +383,7 @@ function WorkspaceInner() {
   }, [isDraggingRight]);
 
   const handleCodeChange = (path: string, newContent: string) => {
+    dirtyFilesRef.current.add(path);
     fileContentsRef.current[path] = newContent;
     setFileStructure((prev) =>
       prev.map((f) => (f.path === path ? { ...f, content: newContent } : f))
@@ -395,6 +450,7 @@ function WorkspaceInner() {
     const fileName = cleanPath.split("/").pop() || cleanPath;
     const newRemoteFile: RemoteFile = { type: "file", name: fileName, path: cleanPath, content: "" };
 
+    dirtyFilesRef.current.add(cleanPath);
     fileContentsRef.current[cleanPath] = "";
 
     setFileStructure((prev) => {
@@ -405,7 +461,14 @@ function WorkspaceInner() {
     // 1. Notify running container if connected
     socket?.emit("updateContent", { path: cleanPath, content: "" });
 
-    // 2. Persist empty file to S3 immediately
+    // 2. Write empty file directly to container
+    if (replId) {
+      axios.post("/api/file/write-pod", { replId, path: cleanPath, content: "" }).catch((err) => {
+        console.warn("[Workspace] Error creating new file in container:", err);
+      });
+    }
+
+    // 3. Persist empty file to S3 immediately
     if (replId) {
       axios.post("/api/file/save", { replId, path: cleanPath, content: "" }).catch((err) => {
         console.warn("[Workspace] Error saving new file to S3:", err);

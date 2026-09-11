@@ -427,3 +427,75 @@ export async function execPodCommand(
       });
   });
 }
+
+export async function writeFileToPod(
+  replId: string,
+  filePath: string,
+  content: string,
+  namespace: string = "default"
+): Promise<{ success: boolean; path: string; bytesWritten: number }> {
+  const { coreV1Api, kubeconfig } = getKubeClients();
+  const res = await coreV1Api.listNamespacedPod(
+    namespace,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    `app=${replId}`
+  );
+
+  const pod = res.body.items[0];
+  if (!pod || !pod.metadata?.name) {
+    throw new Error(`Running sandbox pod for project "${replId}" was not found.`);
+  }
+  const podName = pod.metadata.name;
+
+  const cleanPath = filePath.replace(/^\/+/, "");
+  const base64Content = Buffer.from(content, "utf-8").toString("base64");
+
+  const exec = new Exec(kubeconfig);
+  const stdoutStream = new PassThrough();
+  const stderrStream = new PassThrough();
+  let stderr = "";
+
+  stderrStream.on("data", (chunk: Buffer) => {
+    stderr += chunk.toString("utf-8");
+  });
+
+  const nodeScript = `node -e 'const fs = require("fs"), path = require("path"); const p = path.resolve("/workspace", process.argv[1]); fs.mkdirSync(path.dirname(p), {recursive: true}); fs.writeFileSync(p, Buffer.from(process.argv[2], "base64"));' "${cleanPath}" "${base64Content}"`;
+
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error(`Timed out writing ${cleanPath} to pod ${podName} after 15 seconds`));
+    }, 15000);
+
+    exec
+      .exec(
+        namespace,
+        podName,
+        "runner",
+        ["/bin/sh", "-c", nodeScript],
+        stdoutStream,
+        stderrStream,
+        null,
+        false,
+        (status: any) => {
+          clearTimeout(timeout);
+          if (status?.status === "Success" || !status?.status) {
+            resolve({
+              success: true,
+              path: cleanPath,
+              bytesWritten: Buffer.byteLength(content, "utf-8"),
+            });
+          } else {
+            reject(new Error(stderr || `Failed to write file: status=${status?.status}`));
+          }
+        }
+      )
+      .catch((err: any) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+  });
+}
+

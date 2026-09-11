@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
 import { File } from "../utils/file-manager";
 import { Socket } from "socket.io-client";
@@ -80,6 +80,8 @@ export const Code = ({
     });
   };
 
+  const [syncStatus, setSyncStatus] = useState<"saved" | "saving" | "idle">("idle");
+
   const handleChange = (value: string | undefined) => {
     const val = value ?? "";
     const activeFile = currentFileRef.current;
@@ -87,6 +89,7 @@ export const Code = ({
 
     // Update in-memory file content
     activeFile.content = val;
+    setSyncStatus("saving");
 
     // Notify parent state immediately for cache integrity
     if (onContentChange) {
@@ -98,23 +101,36 @@ export const Code = ({
       clearTimeout(saveTimeoutRef.current);
     }
 
-    saveTimeoutRef.current = setTimeout(() => {
-      // 1. Sync with live pod container
+    saveTimeoutRef.current = setTimeout(async () => {
+      // 1. If socket is connected, emit updateContent
       if (socket && socket.connected) {
         socket.emit("updateContent", { path: activeFile.path, content: val });
       }
 
-      // 2. Persist directly to S3
+      // 2. Write directly to the running container filesystem (/workspace)
       if (replId) {
-        axios.post("/api/file/save", {
-          replId,
-          path: activeFile.path,
-          content: val,
-        }).catch((err) => {
-          console.warn("[Editor] Failed to auto-save to S3:", err);
-        });
+        try {
+          await axios.post("/api/file/write-pod", {
+            replId,
+            path: activeFile.path,
+            content: val,
+          });
+          setSyncStatus("saved");
+
+          // Dispatch event to automatically reload preview iframe
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(
+              new CustomEvent("vessel:file-updated", {
+                detail: { replId, path: activeFile.path },
+              })
+            );
+          }
+        } catch (err) {
+          console.warn("[Editor] Container sync failed:", err);
+          setSyncStatus("idle");
+        }
       }
-    }, 400);
+    }, 300);
   };
 
   return (
@@ -125,10 +141,19 @@ export const Code = ({
           <span className="text-[#8BBB92] font-semibold">{selectedFile.name}</span>
           <span className="text-[#8BBB92]/60 text-[11px] truncate">({selectedFile.path})</span>
         </div>
-        <div className="flex items-center gap-2 text-[11px] text-slate-400 select-none">
-          <span className="flex items-center gap-1 text-[#8BBB92]/80">
-            <Cloud className="w-3 h-3 text-[#8BBB92]" />
-            <span>Auto-saving to S3</span>
+        <div className="flex items-center gap-3 text-[11px] text-slate-400 select-none">
+          <span className="flex items-center gap-1.5 font-sans">
+            {syncStatus === "saving" ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                <span className="text-amber-300 font-medium">Syncing to sandbox...</span>
+              </>
+            ) : (
+              <>
+                <span className="w-2 h-2 rounded-full bg-[#8BBB92]" />
+                <span className="text-[#8BBB92] font-medium">Sandbox Synced (Live)</span>
+              </>
+            )}
           </span>
           <span className="px-1.5 py-0.5 rounded bg-[#12544F]/50 text-[#8BBB92] border border-[#12544F] text-[10px] uppercase font-sans">
             {language}
