@@ -275,7 +275,7 @@ export async function syncUserInS3(user: UserProfile): Promise<UserProfile> {
   const now = new Date().toISOString();
   const updatedUser: UserProfile = {
     email: user.email,
-    name: user.name || existing?.name || "Developer",
+    name: user.name || existing?.name || (user.email ? user.email.split("@")[0] : "User"),
     avatar: user.avatar || existing?.avatar,
     createdAt: existing?.createdAt || now,
     lastLoginAt: now,

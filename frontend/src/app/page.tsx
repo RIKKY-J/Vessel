@@ -86,7 +86,7 @@ export default function HomeLandingPage() {
               href="/projects"
               className="text-xs text-slate-300 hover:text-white transition font-mono"
             >
-              Dashboard ({user.name})
+              Dashboard
             </Link>
           ) : (
             <Link
