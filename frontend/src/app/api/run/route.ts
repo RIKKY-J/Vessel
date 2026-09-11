@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { replId, path: filePath, content } = body;
+    const { replId, path: filePath, content, command } = body;
 
     if (!replId) {
       return NextResponse.json({ error: "replId is required" }, { status: 400 });
@@ -21,8 +21,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2. Restart user application on port 3000
-    const result = await restartPodApp(replId);
+    // 2. Restart user application on port 3000 with custom or default command
+    const result = await restartPodApp(replId, command);
 
     return NextResponse.json({
       success: true,

@@ -70,8 +70,34 @@ function WorkspaceInner() {
   const [stopMessage, setStopMessage] = useState<string>("Saving project to S3...");
   const [isRunning, setIsRunning] = useState(false);
 
+  // Configurable Run Command with per-workspace persistence
+  const defaultCmd = language === "python" ? "python3 main.py" : "node --watch index.js";
+  const [runCommand, setRunCommand] = useState<string>(defaultCmd);
+
+  useEffect(() => {
+    if (!replId) return;
+    try {
+      const saved = localStorage.getItem(`vessel_run_cmd_${replId}`);
+      if (saved) {
+        setRunCommand(saved);
+      } else {
+        setRunCommand(defaultCmd);
+      }
+    } catch {}
+  }, [replId, defaultCmd]);
+
+  const handleUpdateRunCommand = (newCmd: string) => {
+    const val = newCmd.trim() || defaultCmd;
+    setRunCommand(val);
+    try {
+      if (replId) {
+        localStorage.setItem(`vessel_run_cmd_${replId}`, val);
+      }
+    } catch {}
+  };
+
   // Run user application and auto-reload preview
-  const handleRunProject = async () => {
+  const handleRunProject = async (overrideCmd?: string) => {
     if (isRunning || !replId) return;
     setIsRunning(true);
 
@@ -81,11 +107,14 @@ function WorkspaceInner() {
         setViewMode("split");
       }
 
-      // 2. Call /api/run with active file content
+      const cmdToRun = overrideCmd !== undefined ? overrideCmd : runCommand;
+
+      // 2. Call /api/run with active file content and configured command
       await axios.post("/api/run", {
         replId,
         path: selectedFile?.path,
         content: selectedFile?.content,
+        command: cmdToRun,
       });
 
       // 3. Trigger preview iframe auto-reload
@@ -134,7 +163,7 @@ function WorkspaceInner() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [replId, selectedFile, isRunning, viewMode]);
+  }, [replId, selectedFile, isRunning, viewMode, runCommand]);
 
   // Persist dirty files to S3 on tab exit or close
   useEffect(() => {
@@ -754,7 +783,14 @@ function WorkspaceInner() {
             }}
             className="flex-col w-full overflow-hidden shrink-0 min-h-0 bg-white"
           >
-            <Output replId={replId} onRun={handleRunProject} isRunning={isRunning} />
+            <Output
+              replId={replId}
+              onRun={handleRunProject}
+              isRunning={isRunning}
+              language={language}
+              runCommand={runCommand}
+              onCommandChange={handleUpdateRunCommand}
+            />
           </div>
 
           {/* Horizontal Divider (Preview <-> Terminal) */}

@@ -1,18 +1,94 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { RefreshCw, ExternalLink, Globe, Zap, Play } from "lucide-react";
+import {
+  RefreshCw,
+  ExternalLink,
+  Globe,
+  Play,
+  Settings,
+  X,
+  RotateCcw,
+  Sliders,
+  Check,
+} from "lucide-react";
 
 interface OutputProps {
   replId: string;
-  onRun?: () => void;
+  onRun?: (cmd?: string) => void;
   isRunning?: boolean;
+  language?: string;
+  runCommand?: string;
+  onCommandChange?: (cmd: string) => void;
 }
 
-export default function Output({ replId, onRun, isRunning }: OutputProps) {
+export default function Output({
+  replId,
+  onRun,
+  isRunning,
+  language = "node-js",
+  runCommand,
+  onCommandChange,
+}: OutputProps) {
   const [iframeKey, setIframeKey] = useState(0);
   const [isAutoReloading, setIsAutoReloading] = useState(false);
   const reloadTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Settings popover state
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const defaultCommand = language === "python" ? "python3 main.py" : "node --watch index.js";
+  const effectiveCommand = runCommand || defaultCommand;
+  const [commandInput, setCommandInput] = useState(effectiveCommand);
+  const [justSaved, setJustSaved] = useState(false);
+  const settingsRef = useRef<HTMLDivElement | null>(null);
+
+  // Sync command input when prop changes or popover opens
+  useEffect(() => {
+    setCommandInput(effectiveCommand);
+  }, [effectiveCommand, isSettingsOpen]);
+
+  // Dismiss settings on click outside
+  useEffect(() => {
+    if (!isSettingsOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setIsSettingsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isSettingsOpen]);
+
+  const presets =
+    language === "python"
+      ? ["python3 main.py", "python main.py", "python3 app.py", "flask run -p 3000"]
+      : ["node --watch index.js", "npm start", "npm run dev", "node index.js"];
+
+  const handleSaveCommand = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const finalCmd = commandInput.trim() || defaultCommand;
+    setCommandInput(finalCmd);
+    if (onCommandChange) {
+      onCommandChange(finalCmd);
+    }
+    setJustSaved(true);
+    setTimeout(() => {
+      setJustSaved(false);
+      setIsSettingsOpen(false);
+    }, 400);
+  };
+
+  const handleResetToDefault = () => {
+    setCommandInput(defaultCommand);
+    if (onCommandChange) {
+      onCommandChange(defaultCommand);
+    }
+    setJustSaved(true);
+    setTimeout(() => {
+      setJustSaved(false);
+      setIsSettingsOpen(false);
+    }, 400);
+  };
 
   const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
   
@@ -71,15 +147,126 @@ export default function Output({ replId, onRun, isRunning }: OutputProps) {
 
         <div className="flex items-center gap-2 shrink-0">
           {onRun && (
-            <button
-              onClick={onRun}
-              disabled={isRunning}
-              title="Run & update preview (Ctrl + Enter)"
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#E73F1E] hover:bg-[#ff4d29] text-white transition text-[11px] font-bold border border-[#E73F1E] shadow-sm cursor-pointer disabled:opacity-50 active:scale-95"
-            >
-              <Play className="w-3 h-3 fill-current" />
-              <span>{isRunning ? "Running..." : "Run"}</span>
-            </button>
+            <div className="relative inline-flex items-center" ref={settingsRef}>
+              <div className="inline-flex rounded overflow-hidden border border-[#E73F1E] shadow-sm">
+                {/* Main Run Button */}
+                <button
+                  onClick={() => onRun(effectiveCommand)}
+                  disabled={isRunning}
+                  title={`Run: ${effectiveCommand} (Ctrl + Enter)`}
+                  className="flex items-center gap-1.5 px-2.5 py-1 bg-[#E73F1E] hover:bg-[#ff4d29] text-white transition text-[11px] font-bold cursor-pointer disabled:opacity-50 active:scale-[0.98]"
+                >
+                  <Play className="w-3 h-3 fill-current" />
+                  <span>{isRunning ? "Running..." : "Run"}</span>
+                </button>
+
+                {/* Very small settings option */}
+                <button
+                  onClick={() => setIsSettingsOpen((prev) => !prev)}
+                  title="Configure Run command"
+                  className={`px-1.5 py-1 bg-[#E73F1E] hover:bg-[#ff4d29] text-white transition border-l border-white/25 cursor-pointer flex items-center justify-center ${
+                    isSettingsOpen ? "bg-[#c02e11]" : ""
+                  }`}
+                >
+                  <Settings className="w-3 h-3" />
+                </button>
+              </div>
+
+              {/* Small Run Command Settings Popover */}
+              {isSettingsOpen && (
+                <div className="absolute top-full right-0 mt-1.5 w-72 sm:w-80 bg-[#12151B] border border-[#232936] rounded-xl shadow-2xl p-3 z-50 text-white select-none animate-in fade-in zoom-in-95 duration-100">
+                  {/* Popover Header */}
+                  <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-[#232936]">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-white">
+                      <Sliders className="w-3.5 h-3.5 text-[#E73F1E]" />
+                      <span>Run Command Setting</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsSettingsOpen(false)}
+                      className="p-1 rounded text-slate-400 hover:text-white hover:bg-[#181C24] transition cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+
+                  {/* Form */}
+                  <form onSubmit={handleSaveCommand} className="space-y-2.5">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-medium text-slate-300">
+                          Command to execute
+                        </label>
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          {language === "python" ? "Python" : "Node.js"}
+                        </span>
+                      </div>
+                      <input
+                        type="text"
+                        value={commandInput}
+                        onChange={(e) => setCommandInput(e.target.value)}
+                        placeholder={defaultCommand}
+                        className="w-full h-8 bg-[#0B0D11] border border-[#232936] focus:border-[#E73F1E] rounded-lg px-2.5 text-xs text-white font-mono focus:outline-none placeholder-slate-600 transition"
+                        autoFocus
+                      />
+                    </div>
+
+                    {/* Presets */}
+                    <div>
+                      <span className="block text-[10px] text-slate-400 mb-1 font-mono">
+                        Quick presets:
+                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {presets.map((p) => (
+                          <button
+                            key={p}
+                            type="button"
+                            onClick={() => setCommandInput(p)}
+                            className={`px-2 py-0.5 rounded text-[10px] font-mono border transition cursor-pointer ${
+                              commandInput === p
+                                ? "bg-[#E73F1E]/20 border-[#E73F1E] text-[#ff6747]"
+                                : "bg-[#181C24] border-[#232936] text-slate-300 hover:text-white hover:border-slate-500"
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-slate-500 leading-tight">
+                      Runs inside the container on port 3000 to update the live preview.
+                    </p>
+
+                    {/* Action buttons */}
+                    <div className="flex items-center justify-between pt-2 border-t border-[#232936]">
+                      <button
+                        type="button"
+                        onClick={handleResetToDefault}
+                        className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 transition cursor-pointer"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        <span>Reset</span>
+                      </button>
+
+                      <button
+                        type="submit"
+                        className="px-3 py-1 rounded-lg bg-[#E73F1E] hover:bg-[#ff4d29] text-white text-[11px] font-bold transition border border-[#E73F1E] shadow-sm flex items-center gap-1 cursor-pointer"
+                      >
+                        {justSaved ? (
+                          <>
+                            <Check className="w-3 h-3" />
+                            <span>Saved!</span>
+                          </>
+                        ) : (
+                          <span>Save</span>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+            </div>
           )}
 
           <button
