@@ -16,6 +16,7 @@ export const Editor = ({
   onCreateFolder,
   onRefresh,
   replId,
+  onContentChange,
 }: {
   files: RemoteFile[];
   onSelect: (file: File) => void;
@@ -25,6 +26,7 @@ export const Editor = ({
   onCreateFolder?: (name: string) => void;
   onRefresh?: () => void;
   replId?: string;
+  onContentChange?: (path: string, content: string) => void;
 }) => {
   const [sidebarWidth, setSidebarWidth] = useState(240);
   const [isDraggingSidebar, setIsDraggingSidebar] = useState(false);
@@ -116,7 +118,12 @@ export const Editor = ({
       </div>
 
       <div className="flex-1 min-w-0 h-full overflow-hidden">
-        <Code socket={socket} selectedFile={selectedFile} replId={replId} />
+        <Code
+          socket={socket}
+          selectedFile={selectedFile}
+          replId={replId}
+          onContentChange={onContentChange}
+        />
       </div>
     </div>
   );

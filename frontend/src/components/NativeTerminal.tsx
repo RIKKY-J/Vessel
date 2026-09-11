@@ -10,13 +10,15 @@ import {
   Check,
   CornerDownLeft,
   ChevronRight,
-  Loader2,
   AlertCircle,
   Play,
+  Loader2,
 } from "lucide-react";
+import axios from "axios";
 
 interface TerminalProps {
   socket: Socket | null;
+  replId?: string;
 }
 
 type TermStatus = "connecting" | "active" | "retrying" | "disconnected";
@@ -101,7 +103,7 @@ function decodeData(buf: any): string {
   return String(buf);
 }
 
-export default function NativeTerminal({ socket }: TerminalProps) {
+export default function NativeTerminal({ socket, replId }: TerminalProps) {
   const [output, setOutput] = useState<string>(
     "\x1b[38;5;75m[Vessel Sandbox]\x1b[0m Direct Cloud Terminal initialized.\n\x1b[32m[Status]\x1b[0m Ready for shell commands.\n\n"
   );
@@ -110,6 +112,10 @@ export default function NativeTerminal({ socket }: TerminalProps) {
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [copied, setCopied] = useState<boolean>(false);
+  const [isExecuting, setIsExecuting] = useState<boolean>(false);
+
+  const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
+  const sslAuthUrl = replId ? `https://${replId}.52.90.6.151.nip.io:31754/socket.io/` : "";
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -151,14 +157,18 @@ export default function NativeTerminal({ socket }: TerminalProps) {
 
     const onDisconnect = (reason: string) => {
       console.log("[NativeTerminal] Socket disconnected:", reason);
-      setStatus("disconnected");
       lastRequestedSocketIdRef.current = null;
-      setOutput((prev) => prev + `\n\x1b[33m[Vessel] Sandbox disconnected (${reason}). Reconnecting...\x1b[0m\n`);
+      if (status === "active") {
+        setStatus("disconnected");
+        setOutput((prev) => prev + `\n\x1b[33m[Vessel] Live PTY disconnected (${reason}). Switched to Cloud Exec.\x1b[0m\n`);
+      }
     };
 
     const onConnectError = (err: any) => {
       console.warn("[NativeTerminal] Connect error:", err.message);
-      setStatus("retrying");
+      if (status === "connecting") {
+        setStatus("retrying");
+      }
     };
 
     const onTerminalData = async (payload: any) => {
@@ -242,9 +252,32 @@ export default function NativeTerminal({ socket }: TerminalProps) {
     // Write to terminal stdout
     setOutput((prev) => prev + `\x1b[36m$ ${trimmed}\x1b[0m\n`);
 
-    // Emit to runner bash session
+    // Emit to runner bash session (Socket.IO) or Direct Cloud Exec fallback
     if (socket && socket.connected) {
       socket.emit("terminalData", { data: `${trimmed}\n` });
+    } else if (replId) {
+      setIsExecuting(true);
+      axios
+        .post("/api/terminal/exec", { replId, command: trimmed })
+        .then((res) => {
+          const { stdout, stderr, exitCode } = res.data;
+          if (stdout) setOutput((prev) => prev + stdout + (stdout.endsWith("\n") ? "" : "\n"));
+          if (stderr) setOutput((prev) => prev + `\x1b[31m${stderr}\x1b[0m` + (stderr.endsWith("\n") ? "" : "\n"));
+          if (!stdout && !stderr) {
+            setOutput((prev) => prev + `\x1b[32m[Command completed with exit code ${exitCode}]\x1b[0m\n`);
+          }
+        })
+        .catch((err) => {
+          const msg = err.response?.data?.error || err.message;
+          setOutput((prev) => prev + `\x1b[31m[Sandbox Exec Error] ${msg}\x1b[0m\n`);
+        })
+        .finally(() => {
+          setIsExecuting(false);
+          setTimeout(() => {
+            scrollToBottom();
+            inputRef.current?.focus();
+          }, 50);
+        });
     } else {
       setOutput((prev) => prev + "\x1b[31m[Error] Not connected to sandbox. Reconnecting...\x1b[0m\n");
       socket?.connect();
@@ -303,8 +336,9 @@ export default function NativeTerminal({ socket }: TerminalProps) {
   const quickChips = [
     { label: "ls -la", cmd: "ls -la" },
     { label: "pwd", cmd: "pwd" },
-    { label: "python3 --version", cmd: "python3 --version" },
     { label: "node -v", cmd: "node -v" },
+    { label: "python3 --version", cmd: "python3 --version" },
+    { label: "node index.js &", cmd: "node index.js &" },
     { label: "clear", cmd: "clear" },
   ];
 
@@ -322,14 +356,19 @@ export default function NativeTerminal({ socket }: TerminalProps) {
 
           {/* Status Badge */}
           {status === "active" ? (
-            <span className="inline-flex items-center gap-1 text-[11px] text-[#8BBB92] bg-[#2A835F]/20 px-2 py-0.5 rounded-full border border-[#2A835F]/35">
+            <span className="inline-flex items-center gap-1 text-[11px] text-[#8BBB92] bg-[#2A835F]/20 px-2 py-0.5 rounded-full border border-[#2A835F]/35" title="Connected to runner Socket.IO PTY">
               <span className="w-1.5 h-1.5 rounded-full bg-[#8BBB92] animate-pulse" />
-              Active
+              Live PTY
             </span>
-          ) : status === "retrying" ? (
+          ) : isExecuting ? (
             <span className="inline-flex items-center gap-1 text-[11px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
               <Loader2 className="w-3 h-3 animate-spin" />
-              Connecting...
+              Running...
+            </span>
+          ) : replId ? (
+            <span className="inline-flex items-center gap-1 text-[11px] text-[#8BBB92] bg-[#2A835F]/15 px-2 py-0.5 rounded-full border border-[#2A835F]/30" title="Direct Cloud Pod Execution is active">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#8BBB92]" />
+              Cloud Exec
             </span>
           ) : status === "connecting" ? (
             <span className="inline-flex items-center gap-1 text-[11px] text-[#8BBB92] bg-[#2A835F]/20 px-2 py-0.5 rounded-full border border-[#2A835F]/35">
@@ -374,6 +413,29 @@ export default function NativeTerminal({ socket }: TerminalProps) {
           </button>
         </div>
       </div>
+
+      {/* Vercel HTTPS Self-Signed Notice */}
+      {isHttps && status !== "active" && replId && (
+        <div className="bg-[#12544F]/30 border-b border-[#12544F] px-3 py-1.5 flex items-center justify-between text-[11px] text-[#8BBB92] shrink-0">
+          <div className="flex items-center gap-1.5 truncate">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#8BBB92] shrink-0" />
+            <span className="truncate">
+              Direct Cloud Exec is active. Commands run directly inside your sandbox pod.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 ml-2">
+            <a
+              href={sslAuthUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#8BBB92] hover:text-white underline font-semibold text-[10px]"
+              title="Open sandbox in new tab to accept self-signed SSL certificate for live streaming PTY"
+            >
+              Authorize SSL for Live PTY ↗
+            </a>
+          </div>
+        </div>
+      )}
 
       {/* Terminal Log Output Viewport */}
       <div
@@ -427,11 +489,11 @@ export default function NativeTerminal({ socket }: TerminalProps) {
         <button
           type="button"
           onClick={() => sendCommand()}
-          disabled={!commandInput.trim()}
+          disabled={!commandInput.trim() || isExecuting}
           className="ml-2 px-2.5 py-1 rounded bg-[#2A835F] hover:brightness-110 disabled:opacity-40 text-white text-[11px] font-medium transition flex items-center gap-1 cursor-pointer shrink-0 shadow-sm"
         >
-          <Play className="w-3 h-3 fill-current" />
-          <span>Run</span>
+          {isExecuting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3 fill-current" />}
+          <span>{isExecuting ? "Running" : "Run"}</span>
         </button>
       </div>
     </div>

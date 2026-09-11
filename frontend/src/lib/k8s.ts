@@ -1,4 +1,5 @@
-import { KubeConfig, AppsV1Api, CoreV1Api, NetworkingV1Api } from "@kubernetes/client-node";
+import { KubeConfig, AppsV1Api, CoreV1Api, NetworkingV1Api, Exec } from "@kubernetes/client-node";
+import { PassThrough } from "stream";
 import yaml from "yaml";
 
 const SERVICE_YAML_TEMPLATE = `
@@ -195,7 +196,7 @@ export function getKubeClients() {
   const appsV1Api = kubeconfig.makeApiClient(AppsV1Api);
   const networkingV1Api = kubeconfig.makeApiClient(NetworkingV1Api);
 
-  return { coreV1Api, appsV1Api, networkingV1Api };
+  return { coreV1Api, appsV1Api, networkingV1Api, kubeconfig };
 }
 
 export function parseKubeManifests(replId: string, language: string = "node-js"): Array<any> {
@@ -341,4 +342,68 @@ export async function getPodStatus(replId: string, namespace: string = "default"
   }
 }
 
+export async function execPodCommand(
+  replId: string,
+  command: string,
+  namespace: string = "default"
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  const { coreV1Api, kubeconfig } = getKubeClients();
+  const res = await coreV1Api.listNamespacedPod(
+    namespace,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    `app=${replId}`
+  );
 
+  const pod = res.body.items[0];
+  if (!pod || !pod.metadata?.name) {
+    throw new Error(`Running sandbox pod for project "${replId}" was not found.`);
+  }
+  const podName = pod.metadata.name;
+
+  const exec = new Exec(kubeconfig);
+  const stdoutStream = new PassThrough();
+  const stderrStream = new PassThrough();
+  let stdout = "";
+  let stderr = "";
+
+  stdoutStream.on("data", (chunk: Buffer) => {
+    stdout += chunk.toString("utf-8");
+  });
+  stderrStream.on("data", (chunk: Buffer) => {
+    stderr += chunk.toString("utf-8");
+  });
+
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      resolve({
+        stdout,
+        stderr: stderr + "\n[Command timed out after 30 seconds]",
+        exitCode: 124,
+      });
+    }, 30000);
+
+    exec
+      .exec(
+        namespace,
+        podName,
+        "runner",
+        ["/bin/sh", "-c", `cd /workspace && ${command}`],
+        stdoutStream,
+        stderrStream,
+        null,
+        false,
+        (status: any) => {
+          clearTimeout(timeout);
+          const exitCode = status?.status === "Success" ? 0 : 1;
+          resolve({ stdout, stderr, exitCode });
+        }
+      )
+      .catch((err: any) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+  });
+}

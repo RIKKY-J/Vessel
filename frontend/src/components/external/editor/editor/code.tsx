@@ -11,10 +11,12 @@ export const Code = ({
   selectedFile,
   socket,
   replId,
+  onContentChange,
 }: {
   selectedFile: File | undefined;
   socket: Socket | null;
   replId?: string;
+  onContentChange?: (path: string, content: string) => void;
 }) => {
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const currentFileRef = useRef<File | undefined>(selectedFile);
@@ -85,6 +87,11 @@ export const Code = ({
 
     // Update in-memory file content
     activeFile.content = val;
+
+    // Notify parent state immediately for cache integrity
+    if (onContentChange) {
+      onContentChange(activeFile.path, val);
+    }
 
     // Clear existing debounce timer
     if (saveTimeoutRef.current) {

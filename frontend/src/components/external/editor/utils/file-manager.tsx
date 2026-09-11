@@ -22,6 +22,7 @@ export interface RemoteFile {
   type: "file" | "dir";
   name: string;
   path: string;
+  content?: string;
 }
 
 export interface Directory extends CommonProps {
@@ -80,7 +81,8 @@ export function buildFileTree(data: RemoteFile[]): Directory {
       path: item.path,
       parentId: isRoot ? "0" : (dirs.find(x => normalizePath(x.path) === parentPath)?.path || "0"),
       type: Type.FILE,
-      depth: 0
+      depth: 0,
+      content: item.content ?? "",
     };
     cache.set(file.id, file);
   });

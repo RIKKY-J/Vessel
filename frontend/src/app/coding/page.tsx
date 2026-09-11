@@ -52,6 +52,7 @@ function WorkspaceInner() {
   const [loaded, setLoaded] = useState(false);
   const [fileStructure, setFileStructure] = useState<RemoteFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | undefined>(undefined);
+  const fileContentsRef = useRef<Record<string, string>>({});
 
   // Split layout state
   const [viewMode, setViewMode] = useState<ViewMode>("split");
@@ -76,6 +77,13 @@ function WorkspaceInner() {
         if (!isMounted) return;
         if (res.data?.files && res.data.files.length > 0) {
           console.log(`[Workspace] Preloaded ${res.data.files.length} files from S3`);
+          const map: Record<string, string> = {};
+          res.data.files.forEach((f: any) => {
+            if (f.content !== undefined) {
+              map[f.path] = f.content;
+            }
+          });
+          fileContentsRef.current = { ...fileContentsRef.current, ...map };
           setFileStructure(res.data.files);
           const preferred =
             res.data.files.find((f: any) => f.name === "main.py" || f.name === "index.js") ||
@@ -88,7 +96,7 @@ function WorkspaceInner() {
               parentId: "0",
               type: Type.FILE,
               depth: 0,
-              content: preferred.content ?? "",
+              content: preferred.content ?? map[preferred.path] ?? "",
             });
           }
         }
@@ -216,10 +224,15 @@ function WorkspaceInner() {
   useEffect(() => {
     if (!podCreated || !replId) return;
 
-    const clusterHost = process.env.NEXT_PUBLIC_CLUSTER_HOST || "52.90.6.151.nip.io:31516";
+    const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
+    // Port 31754 is the HTTPS NodePort, port 31516 is the HTTP NodePort
+    const clusterHost = isHttps
+      ? (process.env.NEXT_PUBLIC_CLUSTER_HTTPS_HOST || "52.90.6.151.nip.io:31754")
+      : (process.env.NEXT_PUBLIC_CLUSTER_HOST || "52.90.6.151.nip.io:31516");
+
     let wsUrl = process.env.NEXT_PUBLIC_RUNNER_WS_URL;
     if (!wsUrl) {
-      const protocol = typeof window !== "undefined" && window.location.protocol === "https:" ? "https:" : "http:";
+      const protocol = isHttps ? "https:" : "http:";
       wsUrl = `${protocol}//${replId}.${clusterHost}`;
     }
 
@@ -227,7 +240,7 @@ function WorkspaceInner() {
     const newSocket = io(wsUrl, {
       transports: ["websocket", "polling"],
       reconnection: true,
-      reconnectionAttempts: Infinity,
+      reconnectionAttempts: isHttps ? 3 : Infinity,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 4000,
       timeout: 20000,
@@ -244,7 +257,12 @@ function WorkspaceInner() {
     newSocket.on("loaded", ({ rootContent }: { rootContent: RemoteFile[] }) => {
       console.log(`[Workspace] Received rootContent (${rootContent?.length || 0} items)`);
       setLoaded(true);
-      setFileStructure(rootContent);
+      // Merge with existing cached file contents so loaded event doesn't wipe out S3 content
+      const merged = (rootContent || []).map((item) => ({
+        ...item,
+        content: fileContentsRef.current[item.path] ?? item.content ?? "",
+      }));
+      setFileStructure(merged);
     });
 
     newSocket.on("connect_error", (err) => {
@@ -310,6 +328,13 @@ function WorkspaceInner() {
     };
   }, [isDraggingRight]);
 
+  const handleCodeChange = (path: string, newContent: string) => {
+    fileContentsRef.current[path] = newContent;
+    setFileStructure((prev) =>
+      prev.map((f) => (f.path === path ? { ...f, content: newContent } : f))
+    );
+  };
+
   const onSelect = (file: File) => {
     if (file.type === Type.DIRECTORY) {
       socket?.emit("fetchDir", file.path, (data: RemoteFile[]) => {
@@ -321,14 +346,43 @@ function WorkspaceInner() {
         });
       });
     } else {
-      // 1. Immediately select with existing in-memory content
-      setSelectedFile({ ...file, content: file.content ?? "" });
+      // 1. Check in-memory contents cache first
+      const existingContent = fileContentsRef.current[file.path] ?? file.content;
+
+      if (existingContent !== undefined && existingContent !== "") {
+        setSelectedFile({ ...file, content: existingContent });
+      } else {
+        setSelectedFile({ ...file, content: existingContent ?? "" });
+        // S3 fallback fetch if socket not connected or content empty
+        if (!socket || !socket.connected) {
+          axios
+            .get(
+              `/api/file/content?replId=${encodeURIComponent(replId)}&path=${encodeURIComponent(
+                file.path
+              )}&lang=${encodeURIComponent(language)}`
+            )
+            .then((res) => {
+              if (res.data?.content !== undefined) {
+                fileContentsRef.current[file.path] = res.data.content;
+                setSelectedFile((curr) =>
+                  curr?.path === file.path ? { ...curr, content: res.data.content } : curr
+                );
+              }
+            })
+            .catch((err) => {
+              console.warn("[Workspace] Error fetching file content from S3:", err);
+            });
+        }
+      }
 
       // 2. Fetch fresh content from socket if connected
       if (socket && socket.connected) {
         socket.emit("fetchContent", { path: file.path }, (data: string) => {
           if (data !== undefined) {
-            setSelectedFile({ ...file, content: data });
+            fileContentsRef.current[file.path] = data;
+            setSelectedFile((curr) =>
+              curr?.path === file.path ? { ...curr, content: data } : curr
+            );
           }
         });
       }
@@ -339,7 +393,9 @@ function WorkspaceInner() {
     let cleanPath = filename.trim().replace(/\\/g, "/");
     if (!cleanPath.startsWith("/")) cleanPath = `/${cleanPath}`;
     const fileName = cleanPath.split("/").pop() || cleanPath;
-    const newRemoteFile: RemoteFile = { type: "file", name: fileName, path: cleanPath };
+    const newRemoteFile: RemoteFile = { type: "file", name: fileName, path: cleanPath, content: "" };
+
+    fileContentsRef.current[cleanPath] = "";
 
     setFileStructure((prev) => {
       if (prev.some((f) => f.path === cleanPath)) return prev;
@@ -532,6 +588,7 @@ function WorkspaceInner() {
             onCreateFolder={handleCreateFolder}
             onRefresh={handleRefresh}
             replId={replId}
+            onContentChange={handleCodeChange}
           />
         </section>
 
@@ -593,7 +650,7 @@ function WorkspaceInner() {
             }}
             className="flex-col w-full overflow-hidden shrink-0 min-h-0"
           >
-            <TerminalComponent socket={socket} />
+            <TerminalComponent socket={socket} replId={replId} />
           </div>
         </section>
       </main>
