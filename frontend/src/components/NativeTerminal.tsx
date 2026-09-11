@@ -46,6 +46,7 @@ export default function NativeTerminal({ socket, replId }: TerminalProps) {
   const [status, setStatus] = useState<TermStatus>("connecting");
   const [copied, setCopied] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
+  const isExecutingRef = useRef<boolean>(false);
 
   const lastRequestedSocketIdRef = useRef<string | null>(null);
   const hasReceivedDataRef = useRef<boolean>(false);
@@ -61,13 +62,26 @@ export default function NativeTerminal({ socket, replId }: TerminalProps) {
     : (process.env.NEXT_PUBLIC_CLUSTER_HOST || "100.57.92.214.nip.io:31516");
   const sslAuthUrl = replId ? `https://${replId}.${clusterHost}` : "#";
 
-  const prompt = "\r\n\x1b[38;2;231;63;30mroot@sandbox\x1b[0m:\x1b[34m/workspace\x1b[0m$ ";
+  const prompt = "\x1b[38;2;231;63;30mroot@sandbox\x1b[0m:\x1b[34m/workspace\x1b[0m$ ";
+
 
   // Fallback key handler for direct interactive typing when socket is not active
   const handleFallbackKey = useCallback(
     async (key: string) => {
       const term = termRef.current;
       if (!term) return;
+
+      // Ignore normal keystrokes while a command is actively executing
+      if (isExecutingRef.current) {
+        if (key === "\x03") {
+          fallbackLineRef.current = "";
+          term.writeln("^C");
+          setIsExecuting(false);
+          isExecutingRef.current = false;
+          term.write(prompt);
+        }
+        return;
+      }
 
       // Enter
       if (key === "\r" || key === "\n") {
@@ -90,20 +104,60 @@ export default function NativeTerminal({ socket, replId }: TerminalProps) {
         }
 
         setIsExecuting(true);
+        isExecutingRef.current = true;
         try {
           const res = await axios.post("/api/terminal/exec", {
             replId,
             command: cmd,
           });
-          const out = res.data?.output || res.data?.error || "";
-          if (out) {
-            term.write(out.replace(/\r\n/g, "\n").replace(/\n/g, "\r\n"));
-            if (!out.endsWith("\n")) term.write("\r\n");
+
+          const stdout = res.data?.stdout || "";
+          const stderr = res.data?.stderr || "";
+          const output = res.data?.output || "";
+          const exitCode = res.data?.exitCode ?? 0;
+
+          let hasWritten = false;
+
+          // Render stdout
+          if (stdout) {
+            const formatted = stdout.replace(/\r\n/g, "\n").replace(/\n/g, "\r\n");
+            term.write(formatted);
+            if (!formatted.endsWith("\r\n")) term.write("\r\n");
+            hasWritten = true;
+          }
+
+          // Render stderr (highlighted in red)
+          if (stderr) {
+            const formattedErr = stderr.replace(/\r\n/g, "\n").replace(/\n/g, "\r\n");
+            term.write(`\x1b[31m${formattedErr}\x1b[0m`);
+            if (!formattedErr.endsWith("\r\n")) term.write("\r\n");
+            hasWritten = true;
+          }
+
+          // Fallback to combined output if neither stdout nor stderr were populated
+          if (!hasWritten && output) {
+            const formattedOut = output.replace(/\r\n/g, "\n").replace(/\n/g, "\r\n");
+            term.write(formattedOut);
+            if (!formattedOut.endsWith("\r\n")) term.write("\r\n");
+            hasWritten = true;
+          }
+
+          // If command exited non-zero with no output, inform user
+          if (!hasWritten && exitCode !== 0) {
+            term.writeln(`\x1b[31m[Process exited with status ${exitCode}]\x1b[0m`);
           }
         } catch (err: any) {
-          term.writeln(`\x1b[31mError: ${err?.response?.data?.error || err.message}\x1b[0m`);
+          const errDetail =
+            err?.response?.data?.stderr ||
+            err?.response?.data?.error ||
+            err?.response?.data?.output ||
+            err?.message ||
+            "Command execution failed";
+          const formatted = String(errDetail).replace(/\r\n/g, "\n").replace(/\n/g, "\r\n");
+          term.writeln(`\x1b[31mError: ${formatted}\x1b[0m`);
         } finally {
           setIsExecuting(false);
+          isExecutingRef.current = false;
           term.write(prompt);
         }
         return;
@@ -235,6 +289,7 @@ export default function NativeTerminal({ socket, replId }: TerminalProps) {
       term.writeln("\x1b[38;2;231;63;30m=== Vessel Cloud Sandbox Terminal ===\x1b[0m");
       term.writeln("Direct interactive PTY bash session connected to container.");
       term.writeln("Pre-installed modules: \x1b[32mexpress\x1b[0m, \x1b[32mcors\x1b[0m, \x1b[32mdotenv\x1b[0m (NODE_PATH ready)\r\n");
+      term.write(prompt);
 
       // Handle Direct Keypresses from the user!
       term.onData((data) => {
@@ -404,6 +459,7 @@ export default function NativeTerminal({ socket, replId }: TerminalProps) {
   const handleClear = () => {
     if (termRef.current) {
       termRef.current.clear();
+      termRef.current.write(prompt);
       termRef.current.focus();
     }
   };
@@ -427,6 +483,7 @@ export default function NativeTerminal({ socket, replId }: TerminalProps) {
     if (socket && socket.connected) {
       socket.emit("terminalData", { data: cmd + "\r" });
     } else {
+      if (isExecutingRef.current) return;
       if (cmd === "clear") {
         termRef.current?.clear();
         termRef.current?.write(prompt);

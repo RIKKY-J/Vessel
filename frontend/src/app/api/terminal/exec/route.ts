@@ -17,17 +17,29 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await execPodCommand(replId, command);
-    return NextResponse.json(result, { status: 200 });
+    const combinedOutput = [result.stdout, result.stderr].filter(Boolean).join("") || "";
+    return NextResponse.json(
+      {
+        stdout: result.stdout || "",
+        stderr: result.stderr || "",
+        exitCode: result.exitCode ?? 0,
+        output: combinedOutput,
+      },
+      { status: 200 }
+    );
   } catch (error: any) {
     console.error("[API /terminal/exec] Error:", error);
+    const errMsg = error?.message || "Failed to execute command in sandbox pod";
     return NextResponse.json(
       {
         stdout: "",
-        stderr: error?.message || "Failed to execute command in sandbox pod",
+        stderr: errMsg,
         exitCode: 1,
-        error: error?.message,
+        error: errMsg,
+        output: `Error: ${errMsg}\n`,
       },
       { status: 500 }
     );
   }
 }
+
