@@ -105,18 +105,23 @@ function WorkspaceInner() {
     }
   };
 
-  // Check 12-hour session expiration
+  // Check 12-hour session expiration and authentication
   useEffect(() => {
     try {
       const stored = localStorage.getItem("vessel_user");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
-          localStorage.removeItem("vessel_user");
-          router.push("/signin");
-        }
+      if (!stored) {
+        router.push("/signin");
+        return;
       }
-    } catch {}
+      const parsed = JSON.parse(stored);
+      if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
+        localStorage.removeItem("vessel_user");
+        router.push("/signin");
+        return;
+      }
+    } catch {
+      router.push("/signin");
+    }
   }, [router]);
 
   // Keyboard shortcut: Ctrl+Enter or Cmd+Enter to Run

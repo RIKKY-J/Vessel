@@ -1,4 +1,5 @@
 import { S3 } from "aws-sdk";
+import crypto from "crypto";
 
 function getS3Client(): S3 {
   return new S3({
@@ -15,6 +16,10 @@ export function normalizeLanguage(lang?: string): string {
   if (l === "python" || l === "py" || l === "python3") return "python";
   if (l === "node" || l === "node-js" || l === "nodejs" || l === "javascript" || l === "js") return "node-js";
   return l || "node-js";
+}
+
+export function sanitizeEmail(email: string): string {
+  return (email || "").toLowerCase().trim().replace(/[^a-z0-9]/g, "_");
 }
 
 export async function checkS3FolderNotEmpty(prefix: string): Promise<boolean> {
@@ -95,6 +100,8 @@ export interface S3ProjectInfo {
   createdAt?: string;
 }
 
+export type UserProjectItem = S3ProjectInfo;
+
 export interface UserProfile {
   email: string;
   name: string;
@@ -103,15 +110,152 @@ export interface UserProfile {
   lastLoginAt?: string;
 }
 
-export interface UserProjectItem {
-  id: string;
+export interface UserAuthData {
+  email: string;
   name: string;
-  language: string;
-  createdAt?: string;
+  passwordHash: string;
+  salt: string;
+  createdAt: string;
+  lastLoginAt: string;
 }
 
-export function sanitizeEmail(email: string): string {
-  return email.toLowerCase().trim().replace(/[^a-z0-9._-]/g, "_");
+function hashPassword(password: string, salt: string): string {
+  return crypto.pbkdf2Sync(password, salt, 1000, 64, "sha512").toString("hex");
+}
+
+export async function registerUserInS3(
+  email: string,
+  password: string,
+  name?: string
+): Promise<UserProfile> {
+  const s3 = getS3Client();
+  const bucket = process.env.S3_BUCKET ?? "";
+  const sanitized = sanitizeEmail(email);
+  const key = `users/${sanitized}/auth.json`;
+
+  // 1. Check if user already exists
+  try {
+    const check = await s3.headObject({ Bucket: bucket, Key: key }).promise();
+    if (check) {
+      throw new Error("An account with this email address already exists. Please sign in.");
+    }
+  } catch (err: any) {
+    if (err.statusCode !== 404 && err.code !== "NotFound") {
+      if (err.message && err.message.includes("already exists")) throw err;
+    }
+  }
+
+  // 2. Hash password with salt
+  const salt = crypto.randomBytes(16).toString("hex");
+  const passwordHash = hashPassword(password, salt);
+  const now = new Date().toISOString();
+  const displayName = name?.trim() || email.split("@")[0];
+
+  const authData: UserAuthData = {
+    email: email.toLowerCase().trim(),
+    name: displayName,
+    passwordHash,
+    salt,
+    createdAt: now,
+    lastLoginAt: now,
+  };
+
+  await s3
+    .putObject({
+      Bucket: bucket,
+      Key: key,
+      Body: JSON.stringify(authData, null, 2),
+      ContentType: "application/json",
+    })
+    .promise();
+
+  // Also sync profile and empty projects
+  const profileKey = `users/${sanitized}/profile.json`;
+  await s3
+    .putObject({
+      Bucket: bucket,
+      Key: profileKey,
+      Body: JSON.stringify(
+        {
+          email: email.toLowerCase().trim(),
+          name: displayName,
+          createdAt: now,
+          lastLoginAt: now,
+        },
+        null,
+        2
+      ),
+      ContentType: "application/json",
+    })
+    .promise();
+
+  const projectsKey = `users/${sanitized}/projects.json`;
+  try {
+    await s3.headObject({ Bucket: bucket, Key: projectsKey }).promise();
+  } catch {
+    await s3
+      .putObject({
+        Bucket: bucket,
+        Key: projectsKey,
+        Body: JSON.stringify([], null, 2),
+        ContentType: "application/json",
+      })
+      .promise();
+  }
+
+  return {
+    email: email.toLowerCase().trim(),
+    name: displayName,
+    createdAt: now,
+    lastLoginAt: now,
+  };
+}
+
+export async function authenticateUserInS3(
+  email: string,
+  password: string
+): Promise<UserProfile> {
+  const s3 = getS3Client();
+  const bucket = process.env.S3_BUCKET ?? "";
+  const sanitized = sanitizeEmail(email);
+  const key = `users/${sanitized}/auth.json`;
+
+  let authData: UserAuthData | null = null;
+  try {
+    const res = await s3.getObject({ Bucket: bucket, Key: key }).promise();
+    if (res.Body) {
+      authData = JSON.parse(res.Body.toString("utf-8"));
+    }
+  } catch (err: any) {
+    throw new Error("No account found with this email. Please check your email or sign up.");
+  }
+
+  if (!authData || !authData.passwordHash || !authData.salt) {
+    throw new Error("Invalid account data. Please reset or recreate your account.");
+  }
+
+  const computedHash = hashPassword(password, authData.salt);
+  if (computedHash !== authData.passwordHash) {
+    throw new Error("Incorrect password. Please try again.");
+  }
+
+  // Update last login
+  authData.lastLoginAt = new Date().toISOString();
+  await s3
+    .putObject({
+      Bucket: bucket,
+      Key: key,
+      Body: JSON.stringify(authData, null, 2),
+      ContentType: "application/json",
+    })
+    .promise();
+
+  return {
+    email: authData.email,
+    name: authData.name,
+    createdAt: authData.createdAt,
+    lastLoginAt: authData.lastLoginAt,
+  };
 }
 
 export async function syncUserInS3(user: UserProfile): Promise<UserProfile> {

@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
 
     if (!email || typeof email !== "string" || !email.includes("@")) {
       return NextResponse.json(
-        { error: "Valid Google email address is required" },
+        { error: "Valid email address is required" },
         { status: 400 }
       );
     }
