@@ -755,7 +755,7 @@ function WorkspaceInner() {
               height: viewMode === "split" ? `calc(${rightSplit}% - 4px)` : viewMode === "preview" ? "100%" : "0%",
               display: showPreview ? "flex" : "none",
             }}
-            className="flex-col w-full overflow-hidden shrink-0 min-h-0"
+            className="flex-col w-full overflow-hidden shrink-0 min-h-0 bg-white"
           >
             <Output replId={replId} onRun={handleRunProject} isRunning={isRunning} />
           </div>

@@ -60,24 +60,16 @@ export default function Output({ replId, onRun, isRunning }: OutputProps) {
 
   return (
     <div className="flex flex-col h-full bg-[#0B0D11] border-b border-[#232936]">
-      {/* Browser Bar */}
+      {/* Clean Browser Bar */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-[#12151B] border-b border-[#232936] text-xs shrink-0">
         <div className="flex items-center gap-2 flex-1 mr-3 min-w-0">
-          <Globe className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+          <Globe className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           <div className="flex-1 bg-[#0B0D11] border border-[#232936] rounded px-2.5 py-1 text-slate-300 text-xs font-mono truncate" title={directHttpUri}>
             {directHttpUri}
           </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {/* Live Sync Status */}
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#181C24] border border-[#232936] text-[11px]">
-            <Zap className={`w-3 h-3 ${isAutoReloading ? "text-[#E73F1E] animate-bounce" : "text-[#E73F1E]"}`} />
-            <span className={isAutoReloading ? "text-[#E73F1E] font-medium" : "text-slate-300"}>
-              {isAutoReloading ? "Reloading..." : "Live Preview"}
-            </span>
-          </div>
-
           {onRun && (
             <button
               onClick={onRun}
@@ -92,7 +84,7 @@ export default function Output({ replId, onRun, isRunning }: OutputProps) {
 
           <button
             onClick={refreshIframe}
-            title="Reload frame"
+            title="Reload preview"
             className="p-1 rounded text-slate-300 hover:text-white hover:bg-[#181C24] transition cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isAutoReloading ? "animate-spin text-[#E73F1E]" : ""}`} />
@@ -110,29 +102,13 @@ export default function Output({ replId, onRun, isRunning }: OutputProps) {
         </div>
       </div>
 
-      {/* HTTPS Embedded Preview Notice */}
-      {isHttps && (
-        <div className="bg-[#12151B] border-b border-[#232936] px-3 py-1 flex items-center justify-between text-[10px] text-slate-400 shrink-0">
-          <span className="truncate">
-            ⚡ Secure In-IDE Preview active. Connected to port 3000.
-          </span>
-          <a
-            href={directHttpUri}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-white hover:text-[#E73F1E] underline shrink-0 ml-2 font-medium"
-          >
-            Open Standalone Tab ↗
-          </a>
-        </div>
-      )}
-
-      {/* Iframe View */}
-      <div className="flex-1 bg-[#0B0D11] relative">
+      {/* Pure White Browser Preview Canvas - Pristine Visibility */}
+      <div className="flex-1 bg-white relative w-full h-full overflow-hidden">
         <iframe
           key={iframeKey}
           src={iframeSrc}
-          className="w-full h-full border-none"
+          className="w-full h-full border-none bg-white"
+          style={{ backgroundColor: "#ffffff" }}
           title="App Output Preview"
           sandbox="allow-forms allow-modals allow-popups allow-presentation allow-same-origin allow-scripts"
         />
