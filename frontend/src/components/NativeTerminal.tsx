@@ -8,11 +8,9 @@ import {
   Trash2,
   Copy,
   Check,
-  CornerDownLeft,
-  ChevronRight,
   AlertCircle,
-  Play,
   Loader2,
+  ExternalLink,
 } from "lucide-react";
 import axios from "axios";
 
@@ -23,150 +21,304 @@ interface TerminalProps {
 
 type TermStatus = "connecting" | "active" | "retrying" | "disconnected";
 
-// Clean ANSI escape sequences and convert basic colors to styled HTML spans
-function parseAnsi(text: string): string {
-  if (!text) return "";
-
-  // Remove terminal bracketed paste and bell codes
-  let clean = text
-    .replace(/\x1b\[\?2004[hl]/g, "")
-    .replace(/\x07/g, "")
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n");
-
-  // Escape HTML characters
-  clean = clean
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-
-  // Basic ANSI color map
-  const colorMap: { [key: string]: string } = {
-    "0": "</span>", // Reset
-    "1": '<span style="font-weight: bold;">',
-    "2": '<span style="opacity: 0.7;">',
-    "30": '<span style="color: #64748b;">',
-    "31": '<span style="color: #ef4444;">',
-    "32": '<span style="color: #22c55e;">',
-    "33": '<span style="color: #eab308;">',
-    "34": '<span style="color: #3b82f6;">',
-    "35": '<span style="color: #a855f7;">',
-    "36": '<span style="color: #06b6d4;">',
-    "37": '<span style="color: #f8fafc;">',
-    "90": '<span style="color: #94a3b8;">',
-    "91": '<span style="color: #f87171;">',
-    "92": '<span style="color: #4ade80;">',
-    "93": '<span style="color: #facc15;">',
-    "94": '<span style="color: #60a5fa;">',
-    "95": '<span style="color: #c084fc;">',
-    "96": '<span style="color: #22d3ee;">',
-    "97": '<span style="color: #ffffff;">',
-  };
-
-  clean = clean.replace(/\x1b\[([0-9;]+)m/g, (match, code) => {
-    const codes = code.split(";");
-    return codes.map((c: string) => colorMap[c] || "").join("");
-  });
-
-  // Remove any remaining unrecognized escape codes
-  clean = clean.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "");
-
-  return clean;
-}
-
 function decodeData(buf: any): string {
   if (typeof buf === "string") return buf;
   if (!buf) return "";
-
-  try {
-    const textDecoder = new TextDecoder("utf-8");
-    if (buf instanceof ArrayBuffer) {
-      return textDecoder.decode(buf);
+  if (buf instanceof Uint8Array || ArrayBuffer.isView(buf)) {
+    try {
+      return new TextDecoder("utf-8").decode(buf);
+    } catch {
+      return String.fromCharCode.apply(null, Array.from(buf as any));
     }
-    if (ArrayBuffer.isView(buf)) {
-      return textDecoder.decode(buf);
-    }
-    if (buf?.data) {
-      if (Array.isArray(buf.data) || ArrayBuffer.isView(buf.data)) {
-        return textDecoder.decode(new Uint8Array(buf.data));
-      }
-      if (typeof buf.data === "string") {
-        return buf.data;
-      }
-    }
-    if (Array.isArray(buf)) {
-      return textDecoder.decode(new Uint8Array(buf));
-    }
-  } catch (err) {
-    console.warn("[Terminal] Decode error:", err);
   }
+  if (typeof buf === "object" && buf.data && Array.isArray(buf.data)) {
+    return new TextDecoder("utf-8").decode(new Uint8Array(buf.data));
+  }
+  if (buf.toString) return buf.toString("utf-8");
   return String(buf);
 }
 
 export default function NativeTerminal({ socket, replId }: TerminalProps) {
-  const [output, setOutput] = useState<string>(
-    "\x1b[38;5;75m[Vessel Sandbox]\x1b[0m Direct Cloud Terminal initialized.\n\x1b[32m[Status]\x1b[0m Ready for shell commands.\n\n"
-  );
-  const [commandInput, setCommandInput] = useState<string>("");
+  const terminalContainerRef = useRef<HTMLDivElement>(null);
+  const termRef = useRef<any>(null);
+  const fitAddonRef = useRef<any>(null);
+
   const [status, setStatus] = useState<TermStatus>("connecting");
-  const [history, setHistory] = useState<string[]>([]);
-  const [historyIndex, setHistoryIndex] = useState<number>(-1);
-  const [copied, setCopied] = useState<boolean>(false);
-  const [isExecuting, setIsExecuting] = useState<boolean>(false);
+  const [copied, setCopied] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
+
+  const lastRequestedSocketIdRef = useRef<string | null>(null);
+  const hasReceivedDataRef = useRef<boolean>(false);
+
+  // Fallback command line buffer when WebSocket is not connected
+  const fallbackLineRef = useRef<string>("");
+  const fallbackHistoryRef = useRef<string[]>([]);
+  const fallbackHistoryIndexRef = useRef<number>(-1);
 
   const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
-  const clusterHttpsHost = process.env.NEXT_PUBLIC_CLUSTER_HTTPS_HOST || "100.57.92.214.nip.io:31754";
-  const sslAuthUrl = replId ? `https://${replId}.${clusterHttpsHost}/socket.io/` : "";
+  const clusterHost = isHttps
+    ? (process.env.NEXT_PUBLIC_CLUSTER_HTTPS_HOST || "100.57.92.214.nip.io:31754")
+    : (process.env.NEXT_PUBLIC_CLUSTER_HOST || "100.57.92.214.nip.io:31516");
+  const sslAuthUrl = replId ? `https://${replId}.${clusterHost}` : "#";
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const lastRequestedSocketIdRef = useRef<string | null>(null);
+  const prompt = "\r\n\x1b[38;2;231;63;30mroot@sandbox\x1b[0m:\x1b[34m/workspace\x1b[0m$ ";
 
-  // Auto-scroll output container to bottom
-  const scrollToBottom = useCallback(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, []);
+  // Fallback key handler for direct interactive typing when socket is not active
+  const handleFallbackKey = useCallback(
+    async (key: string) => {
+      const term = termRef.current;
+      if (!term) return;
 
+      // Enter
+      if (key === "\r" || key === "\n") {
+        term.write("\r\n");
+        const cmd = fallbackLineRef.current.trim();
+        fallbackLineRef.current = "";
+        fallbackHistoryIndexRef.current = -1;
+
+        if (!cmd) {
+          term.write(prompt);
+          return;
+        }
+
+        fallbackHistoryRef.current.push(cmd);
+
+        if (cmd === "clear") {
+          term.clear();
+          term.write(prompt);
+          return;
+        }
+
+        setIsExecuting(true);
+        try {
+          const res = await axios.post("/api/terminal/exec", {
+            replId,
+            command: cmd,
+          });
+          const out = res.data?.output || res.data?.error || "";
+          if (out) {
+            term.write(out.replace(/\r\n/g, "\n").replace(/\n/g, "\r\n"));
+            if (!out.endsWith("\n")) term.write("\r\n");
+          }
+        } catch (err: any) {
+          term.writeln(`\x1b[31mError: ${err?.response?.data?.error || err.message}\x1b[0m`);
+        } finally {
+          setIsExecuting(false);
+          term.write(prompt);
+        }
+        return;
+      }
+
+      // Backspace (\x7F or \b)
+      if (key === "\x7f" || key === "\b") {
+        if (fallbackLineRef.current.length > 0) {
+          fallbackLineRef.current = fallbackLineRef.current.slice(0, -1);
+          term.write("\b \b");
+        }
+        return;
+      }
+
+      // Ctrl+C (\x03)
+      if (key === "\x03") {
+        fallbackLineRef.current = "";
+        term.writeln("^C");
+        term.write(prompt);
+        return;
+      }
+
+      // Up Arrow (\x1b[A)
+      if (key === "\x1b[A") {
+        const history = fallbackHistoryRef.current;
+        if (history.length === 0) return;
+        const nextIndex =
+          fallbackHistoryIndexRef.current === -1
+            ? history.length - 1
+            : Math.max(0, fallbackHistoryIndexRef.current - 1);
+        fallbackHistoryIndexRef.current = nextIndex;
+        const cmd = history[nextIndex] || "";
+
+        while (fallbackLineRef.current.length > 0) {
+          term.write("\b \b");
+          fallbackLineRef.current = fallbackLineRef.current.slice(0, -1);
+        }
+        fallbackLineRef.current = cmd;
+        term.write(cmd);
+        return;
+      }
+
+      // Down Arrow (\x1b[B)
+      if (key === "\x1b[B") {
+        const history = fallbackHistoryRef.current;
+        if (fallbackHistoryIndexRef.current === -1) return;
+        const nextIndex = fallbackHistoryIndexRef.current + 1;
+
+        while (fallbackLineRef.current.length > 0) {
+          term.write("\b \b");
+          fallbackLineRef.current = fallbackLineRef.current.slice(0, -1);
+        }
+
+        if (nextIndex >= history.length) {
+          fallbackHistoryIndexRef.current = -1;
+          fallbackLineRef.current = "";
+        } else {
+          fallbackHistoryIndexRef.current = nextIndex;
+          const cmd = history[nextIndex] || "";
+          fallbackLineRef.current = cmd;
+          term.write(cmd);
+        }
+        return;
+      }
+
+      // Normal printable keys
+      if (key >= " " || key === "\t") {
+        fallbackLineRef.current += key;
+        term.write(key);
+      }
+    },
+    [prompt, replId]
+  );
+
+  // Initialize xterm.js instance
   useEffect(() => {
-    scrollToBottom();
-  }, [output, scrollToBottom]);
+    let isMounted = true;
 
-  // Handle Socket.IO connection and terminal streaming
+    const initTerminal = async () => {
+      if (!terminalContainerRef.current) return;
+      terminalContainerRef.current.innerHTML = "";
+
+      const { Terminal } = await import("xterm");
+      const { FitAddon } = await import("xterm-addon-fit");
+
+      if (!isMounted) return;
+
+      const term = new Terminal({
+        cursorBlink: true,
+        cursorStyle: "block",
+        fontFamily: "'Fira Code', Menlo, Monaco, 'Courier New', monospace",
+        fontSize: 12,
+        lineHeight: 1.25,
+        theme: {
+          background: "#0B0D11",
+          foreground: "#F8FAFC",
+          cursor: "#FFFFFF",
+          cursorAccent: "#0B0D11",
+          selectionBackground: "#E73F1E45",
+          black: "#0B0D11",
+          red: "#EF4444",
+          green: "#22C55E",
+          yellow: "#F59E0B",
+          blue: "#3B82F6",
+          magenta: "#A855F7",
+          cyan: "#06B6D4",
+          white: "#F8FAFC",
+          brightBlack: "#475569",
+          brightRed: "#F87171",
+          brightGreen: "#4ADE80",
+          brightYellow: "#FBBF24",
+          brightBlue: "#60A5FA",
+          brightMagenta: "#C084FC",
+          brightCyan: "#22D3EE",
+          brightWhite: "#FFFFFF",
+        },
+      });
+
+      const fitAddon = new FitAddon();
+      term.loadAddon(fitAddon);
+
+      term.open(terminalContainerRef.current);
+      fitAddon.fit();
+
+      termRef.current = term;
+      fitAddonRef.current = fitAddon;
+
+      // Welcome Banner
+      term.writeln("\x1b[38;2;231;63;30m=== Vessel Cloud Sandbox Terminal ===\x1b[0m");
+      term.writeln("Direct interactive PTY bash session connected to container.");
+      term.writeln("Pre-installed modules: \x1b[32mexpress\x1b[0m, \x1b[32mcors\x1b[0m, \x1b[32mdotenv\x1b[0m (NODE_PATH ready)\r\n");
+
+      // Handle Direct Keypresses from the user!
+      term.onData((data) => {
+        if (socket && socket.connected) {
+          // Direct real-time streaming to bash PTY!
+          socket.emit("terminalData", { data });
+        } else {
+          // Fallback direct interactive handling without input box
+          handleFallbackKey(data);
+        }
+      });
+
+      // Auto-fit on window resize
+      const handleResize = () => {
+        try {
+          fitAddon.fit();
+          if (socket && socket.connected) {
+            socket.emit("terminalResize", { cols: term.cols, rows: term.rows });
+          }
+        } catch {}
+      };
+
+      window.addEventListener("resize", handleResize);
+
+      // ResizeObserver to handle container panel drag resizing
+      const ro = new ResizeObserver(() => {
+        try {
+          fitAddon.fit();
+          if (socket && socket.connected) {
+            socket.emit("terminalResize", { cols: term.cols, rows: term.rows });
+          }
+        } catch {}
+      });
+      ro.observe(terminalContainerRef.current);
+
+      // Auto-focus after opening
+      setTimeout(() => {
+        term.focus();
+      }, 300);
+    };
+
+    initTerminal();
+
+    return () => {
+      isMounted = false;
+      if (termRef.current) {
+        termRef.current.dispose();
+      }
+    };
+  }, [handleFallbackKey, socket]);
+
+  // Connect Socket.IO PTY events to xterm
   useEffect(() => {
     if (!socket) return;
-
-    console.log("[NativeTerminal] Listening on socket.id:", socket.id, "connected:", socket.connected);
 
     const requestPty = () => {
       if (!socket.connected) return;
       if (lastRequestedSocketIdRef.current === socket.id) return;
       lastRequestedSocketIdRef.current = socket.id;
       setStatus("active");
-      console.log("[NativeTerminal] Emitting requestTerminal for socket:", socket.id);
+      const term = termRef.current;
       socket.emit("requestTerminal");
-      socket.emit("terminalResize", { cols: 100, rows: 30 });
+      if (term) {
+        socket.emit("terminalResize", { cols: term.cols || 100, rows: term.rows || 24 });
+        socket.emit("terminalData", { data: "\n" });
+      }
     };
 
     const onConnect = () => {
-      console.log("[NativeTerminal] Socket connected:", socket.id);
       setStatus("active");
-      setOutput((prev) => prev + "\x1b[32m[Vessel]\x1b[0m Connected to runner sandbox! Bash session active.\n");
       requestPty();
     };
 
     const onDisconnect = (reason: string) => {
-      console.log("[NativeTerminal] Socket disconnected:", reason);
       lastRequestedSocketIdRef.current = null;
-      if (status === "active") {
-        setStatus("disconnected");
-        setOutput((prev) => prev + `\n\x1b[33m[Vessel] Live PTY disconnected (${reason}). Switched to Cloud Exec.\x1b[0m\n`);
+      hasReceivedDataRef.current = false;
+      setStatus("disconnected");
+      if (termRef.current) {
+        termRef.current.writeln(`\r\n\x1b[33m[Vessel] PTY disconnected (${reason}). Interactive fallback active.\x1b[0m\r\n`);
+        termRef.current.write(prompt);
       }
     };
 
     const onConnectError = (err: any) => {
-      console.warn("[NativeTerminal] Connect error:", err.message);
       if (status === "connecting") {
         setStatus("retrying");
       }
@@ -185,13 +337,10 @@ export default function NativeTerminal({ socket, replId }: TerminalProps) {
         }
       }
       const text = decodeData(raw);
-      if (text) {
+      if (text && termRef.current) {
+        hasReceivedDataRef.current = true;
         setStatus("active");
-        setOutput((prev) => {
-          // Keep buffer manageable to prevent memory bloat
-          const combined = prev + text;
-          return combined.length > 50000 ? combined.slice(-35000) : combined;
-        });
+        termRef.current.write(text);
       }
     };
 
@@ -199,11 +348,6 @@ export default function NativeTerminal({ socket, replId }: TerminalProps) {
     socket.on("disconnect", onDisconnect);
     socket.on("connect_error", onConnectError);
     socket.on("terminal", onTerminalData);
-
-    if (socket.io) {
-      socket.io.on("reconnect", onConnect);
-      socket.io.on("error", onConnectError);
-    }
 
     if (socket.connected) {
       onConnect();
@@ -214,122 +358,82 @@ export default function NativeTerminal({ socket, replId }: TerminalProps) {
       }
     }
 
+    // Periodic watchdog to ensure PTY prompt appears
+    const watchdog = setInterval(() => {
+      if (socket.connected && !hasReceivedDataRef.current) {
+        socket.emit("requestTerminal");
+        const term = termRef.current;
+        if (term) {
+          socket.emit("terminalResize", { cols: term.cols || 100, rows: term.rows || 24 });
+          socket.emit("terminalData", { data: "\n" });
+        }
+      }
+    }, 2500);
+
     return () => {
+      clearInterval(watchdog);
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
       socket.off("connect_error", onConnectError);
       socket.off("terminal", onTerminalData);
-      if (socket.io) {
-        socket.io.off("reconnect", onConnect);
-        socket.io.off("error", onConnectError);
-      }
     };
-  }, [socket]);
-
-  // Execute terminal command
-  const sendCommand = (cmdToSend?: string) => {
-    const cmd = cmdToSend !== undefined ? cmdToSend : commandInput;
-    const trimmed = cmd.trim();
-
-    if (!trimmed) {
-      // Just sending an empty Enter kicks the prompt
-      if (socket && socket.connected) {
-        socket.emit("terminalData", { data: "\n" });
-      }
-      return;
-    }
-
-    // Special client commands
-    if (trimmed === "clear") {
-      setOutput("");
-      setCommandInput("");
-      return;
-    }
-
-    // Append to local history
-    setHistory((prev) => [...prev.filter((h) => h !== trimmed), trimmed]);
-    setHistoryIndex(-1);
-
-    // Write to terminal stdout
-    setOutput((prev) => prev + `\x1b[36m$ ${trimmed}\x1b[0m\n`);
-
-    // Emit to runner bash session (Socket.IO) or Direct Cloud Exec fallback
-    if (socket && socket.connected) {
-      socket.emit("terminalData", { data: `${trimmed}\n` });
-    } else if (replId) {
-      setIsExecuting(true);
-      axios
-        .post("/api/terminal/exec", { replId, command: trimmed })
-        .then((res) => {
-          const { stdout, stderr, exitCode } = res.data;
-          if (stdout) setOutput((prev) => prev + stdout + (stdout.endsWith("\n") ? "" : "\n"));
-          if (stderr) setOutput((prev) => prev + `\x1b[31m${stderr}\x1b[0m` + (stderr.endsWith("\n") ? "" : "\n"));
-          if (!stdout && !stderr) {
-            setOutput((prev) => prev + `\x1b[32m[Command completed with exit code ${exitCode}]\x1b[0m\n`);
-          }
-        })
-        .catch((err) => {
-          const msg = err.response?.data?.error || err.message;
-          setOutput((prev) => prev + `\x1b[31m[Sandbox Exec Error] ${msg}\x1b[0m\n`);
-        })
-        .finally(() => {
-          setIsExecuting(false);
-          setTimeout(() => {
-            scrollToBottom();
-            inputRef.current?.focus();
-          }, 50);
-        });
-    } else {
-      setOutput((prev) => prev + "\x1b[31m[Error] Not connected to sandbox. Reconnecting...\x1b[0m\n");
-      socket?.connect();
-    }
-
-    setCommandInput("");
-  };
-
-  // Keyboard navigation for command history
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      sendCommand();
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      if (history.length === 0) return;
-      const nextIndex = historyIndex === -1 ? history.length - 1 : Math.max(0, historyIndex - 1);
-      setHistoryIndex(nextIndex);
-      setCommandInput(history[nextIndex] || "");
-    } else if (e.key === "ArrowDown") {
-      e.preventDefault();
-      if (historyIndex === -1) return;
-      const nextIndex = historyIndex + 1;
-      if (nextIndex >= history.length) {
-        setHistoryIndex(-1);
-        setCommandInput("");
-      } else {
-        setHistoryIndex(nextIndex);
-        setCommandInput(history[nextIndex] || "");
-      }
-    }
-  };
-
-  const handleCopyOutput = () => {
-    // Strip HTML/ANSI tags for plain text copying
-    const plainText = output.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "");
-    navigator.clipboard.writeText(plainText);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
+  }, [prompt, socket, status]);
 
   const handleReconnect = () => {
     setStatus("connecting");
     lastRequestedSocketIdRef.current = null;
-    setOutput((prev) => prev + "\n\x1b[36m[Vessel] Manually reconnecting terminal session...\x1b[0m\n");
+    hasReceivedDataRef.current = false;
+    if (termRef.current) {
+      termRef.current.writeln("\r\n\x1b[36m[Vessel] Reconnecting terminal session...\x1b[0m\r\n");
+      termRef.current.focus();
+    }
     if (socket) {
       if (socket.connected) {
         socket.emit("requestTerminal");
-        socket.emit("terminalData", { data: "\n" });
+        if (termRef.current) {
+          socket.emit("terminalResize", { cols: termRef.current.cols || 100, rows: termRef.current.rows || 24 });
+          socket.emit("terminalData", { data: "\n" });
+        }
       } else {
+        socket.disconnect();
         socket.connect();
+      }
+    }
+  };
+
+  const handleClear = () => {
+    if (termRef.current) {
+      termRef.current.clear();
+      termRef.current.focus();
+    }
+  };
+
+  const handleCopy = () => {
+    if (termRef.current) {
+      const selection = termRef.current.getSelection();
+      if (selection) {
+        navigator.clipboard.writeText(selection);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+      termRef.current.focus();
+    }
+  };
+
+  const sendQuickCommand = (cmd: string) => {
+    if (termRef.current) {
+      termRef.current.focus();
+    }
+    if (socket && socket.connected) {
+      socket.emit("terminalData", { data: cmd + "\r" });
+    } else {
+      if (cmd === "clear") {
+        termRef.current?.clear();
+        termRef.current?.write(prompt);
+      } else {
+        fallbackLineRef.current = cmd;
+        termRef.current?.write(cmd);
+        handleFallbackKey("\r");
       }
     }
   };
@@ -345,19 +449,22 @@ export default function NativeTerminal({ socket, replId }: TerminalProps) {
 
   return (
     <div
-      className="flex flex-col h-full bg-[#0B0D11] border-t border-[#232936] font-mono text-xs select-text overflow-hidden"
-      onClick={() => inputRef.current?.focus()}
+      className="flex flex-col h-full bg-[#0B0D11] border-t border-[#232936] font-mono text-xs select-none overflow-hidden"
+      onClick={() => termRef.current?.focus()}
     >
-      {/* Terminal Toolbar */}
+      {/* Terminal Header Toolbar */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-[#12151B] border-b border-[#232936] select-none shrink-0">
         <div className="flex items-center gap-2">
           <TerminalIcon className="w-3.5 h-3.5 text-[#E73F1E]" />
           <span className="font-semibold text-white">Terminal</span>
-          <span className="text-slate-400 text-[11px]">(interactive bash)</span>
+          <span className="text-slate-400 text-[11px]">(direct interactive bash)</span>
 
           {/* Status Badge */}
           {status === "active" ? (
-            <span className="inline-flex items-center gap-1.5 text-[11px] text-white bg-[#181C24] px-2.5 py-0.5 rounded-full border border-[#232936]" title="Connected to runner Socket.IO PTY">
+            <span
+              className="inline-flex items-center gap-1.5 text-[11px] text-white bg-[#181C24] px-2.5 py-0.5 rounded-full border border-[#232936]"
+              title="Connected to runner Socket.IO PTY"
+            >
               <span className="w-1.5 h-1.5 rounded-full bg-[#E73F1E] animate-pulse" />
               Live PTY
             </span>
@@ -367,7 +474,10 @@ export default function NativeTerminal({ socket, replId }: TerminalProps) {
               Running...
             </span>
           ) : replId ? (
-            <span className="inline-flex items-center gap-1.5 text-[11px] text-white bg-[#181C24] px-2.5 py-0.5 rounded-full border border-[#232936]" title="Direct Cloud Pod Execution is active">
+            <span
+              className="inline-flex items-center gap-1.5 text-[11px] text-white bg-[#181C24] px-2.5 py-0.5 rounded-full border border-[#232936]"
+              title="Direct Cloud Pod Execution is active"
+            >
               <span className="w-1.5 h-1.5 rounded-full bg-[#E73F1E]" />
               Cloud Exec
             </span>
@@ -384,21 +494,21 @@ export default function NativeTerminal({ socket, replId }: TerminalProps) {
           )}
         </div>
 
-        {/* Toolbar actions */}
+        {/* Toolbar Actions */}
         <div className="flex items-center gap-1.5">
           <button
-            onClick={handleCopyOutput}
+            onClick={handleCopy}
             className="px-2 py-1 rounded bg-[#181C24] hover:bg-[#232936] text-slate-300 hover:text-white transition text-[11px] flex items-center gap-1 border border-[#232936] cursor-pointer"
-            title="Copy terminal output"
+            title="Copy selection"
           >
             {copied ? <Check className="w-3 h-3 text-[#E73F1E]" /> : <Copy className="w-3 h-3" />}
             <span>{copied ? "Copied" : "Copy"}</span>
           </button>
 
           <button
-            onClick={() => setOutput("")}
+            onClick={handleClear}
             className="px-2 py-1 rounded bg-[#181C24] hover:bg-[#232936] text-slate-300 hover:text-white transition text-[11px] flex items-center gap-1 border border-[#232936] cursor-pointer"
-            title="Clear terminal log"
+            title="Clear terminal screen"
           >
             <Trash2 className="w-3 h-3" />
             <span>Clear</span>
@@ -417,11 +527,11 @@ export default function NativeTerminal({ socket, replId }: TerminalProps) {
 
       {/* Vercel HTTPS Self-Signed Notice */}
       {isHttps && status !== "active" && replId && (
-        <div className="bg-[#12151B] border-b border-[#232936] px-3 py-1.5 flex items-center justify-between text-[11px] text-slate-300 shrink-0">
+        <div className="bg-[#12151B] border-b border-[#232936] px-3 py-1 flex items-center justify-between text-[11px] text-slate-300 shrink-0">
           <div className="flex items-center gap-1.5 truncate">
             <span className="w-1.5 h-1.5 rounded-full bg-[#E73F1E] shrink-0" />
             <span className="truncate">
-              Direct Cloud Exec is active. Commands run directly inside your sandbox pod.
+              Direct terminal mode active. Type directly on the screen below.
             </span>
           </div>
           <div className="flex items-center gap-2 shrink-0 ml-2">
@@ -429,74 +539,40 @@ export default function NativeTerminal({ socket, replId }: TerminalProps) {
               href={sslAuthUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#E73F1E] hover:text-[#ff4d29] underline font-semibold text-[10px]"
+              className="text-[#E73F1E] hover:text-[#ff4d29] underline font-semibold text-[10px] flex items-center gap-0.5"
               title="Open sandbox in new tab to accept self-signed SSL certificate for live streaming PTY"
             >
-              Authorize SSL for Live PTY ↗
+              <span>Enable Full PTY ↗</span>
             </a>
           </div>
         </div>
       )}
 
-      {/* Terminal Log Output Viewport */}
-      <div
-        ref={scrollRef}
-        className="flex-1 p-3 overflow-y-auto font-mono text-[12px] leading-relaxed text-slate-200 whitespace-pre-wrap selection:bg-[#E73F1E]/30"
-      >
-        <div dangerouslySetInnerHTML={{ __html: parseAnsi(output) }} />
-      </div>
-
       {/* Quick Action Chips */}
-      <div className="px-3 py-1.5 bg-[#12151B] border-t border-[#232936] flex items-center gap-1.5 overflow-x-auto select-none shrink-0">
-        <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mr-1">Quick:</span>
+      <div className="px-3 py-1 bg-[#12151B]/80 border-b border-[#232936] flex items-center gap-1.5 overflow-x-auto select-none shrink-0">
+        <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mr-1">
+          Quick:
+        </span>
         {quickChips.map(({ label, cmd }) => (
           <button
             key={label}
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              sendCommand(cmd);
+              sendQuickCommand(cmd);
             }}
-            className="px-2.5 py-1 rounded bg-[#181C24] hover:bg-[#232936] text-slate-200 hover:text-white border border-[#232936] hover:border-[#E73F1E] text-[11px] transition cursor-pointer shrink-0"
+            className="px-2 py-0.5 rounded bg-[#181C24] hover:bg-[#232936] text-slate-200 hover:text-white border border-[#232936] hover:border-[#E73F1E] text-[10px] transition cursor-pointer shrink-0 font-mono"
           >
             {label}
           </button>
         ))}
       </div>
 
-      {/* Interactive Command Input Prompt */}
-      <div className="flex items-center px-3 py-2 bg-[#12151B] border-t border-[#232936] shrink-0">
-        <div className="flex items-center gap-1.5 text-slate-300 font-semibold select-none shrink-0">
-          <span className="text-slate-300">root@sandbox</span>
-          <span className="text-slate-500">:</span>
-          <span className="text-slate-400">/workspace</span>
-          <span className="text-[#E73F1E] font-bold text-sm">$</span>
-        </div>
-
-        <div className="flex-1 flex items-center ml-2 relative">
-          <input
-            ref={inputRef}
-            type="text"
-            value={commandInput}
-            onChange={(e) => setCommandInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type bash command and press Enter (e.g. ls, python3 main.py, npm start)..."
-            className="w-full bg-transparent text-white font-mono text-xs focus:outline-none placeholder-slate-500"
-            autoComplete="off"
-            spellCheck="false"
-          />
-        </div>
-
-        <button
-          type="button"
-          onClick={() => sendCommand()}
-          disabled={!commandInput.trim() || isExecuting}
-          className="ml-2 px-3 py-1.5 rounded bg-[#E73F1E] hover:bg-[#ff4d29] disabled:opacity-40 text-white text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm border border-[#E73F1E]"
-        >
-          {isExecuting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3 fill-current" />}
-          <span>{isExecuting ? "Running" : "Run"}</span>
-        </button>
-      </div>
+      {/* Direct Interactive Terminal Viewport (xterm.js Canvas & PTY) - ZERO INPUT BOX */}
+      <div
+        ref={terminalContainerRef}
+        className="flex-1 w-full h-full p-2 bg-[#0B0D11] overflow-hidden cursor-text select-text"
+      />
     </div>
   );
 }

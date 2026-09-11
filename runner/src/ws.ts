@@ -96,6 +96,10 @@ function initHandlers(socket: Socket, replId: string) {
         terminalManager.write(socket.id, data);
     });
 
+    socket.on("terminalResize", ({ cols, rows }: { cols: number, rows: number }) => {
+        terminalManager.resize(socket.id, cols, rows);
+    });
+
     socket.on("saveAll", async (callback) => {
         console.log(`[WS] saveAll requested from client socket.id=${socket.id} for replId=${replId}`);
         try {
