@@ -115,7 +115,8 @@ export default function NativeTerminal({ socket, replId }: TerminalProps) {
   const [isExecuting, setIsExecuting] = useState<boolean>(false);
 
   const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
-  const sslAuthUrl = replId ? `https://${replId}.52.90.6.151.nip.io:31754/socket.io/` : "";
+  const clusterHttpsHost = process.env.NEXT_PUBLIC_CLUSTER_HTTPS_HOST || "100.57.92.214.nip.io:31754";
+  const sslAuthUrl = replId ? `https://${replId}.${clusterHttpsHost}/socket.io/` : "";
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);

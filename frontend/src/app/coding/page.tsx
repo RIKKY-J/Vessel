@@ -227,8 +227,8 @@ function WorkspaceInner() {
     const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
     // Port 31754 is the HTTPS NodePort, port 31516 is the HTTP NodePort
     const clusterHost = isHttps
-      ? (process.env.NEXT_PUBLIC_CLUSTER_HTTPS_HOST || "52.90.6.151.nip.io:31754")
-      : (process.env.NEXT_PUBLIC_CLUSTER_HOST || "52.90.6.151.nip.io:31516");
+      ? (process.env.NEXT_PUBLIC_CLUSTER_HTTPS_HOST || "100.57.92.214.nip.io:31754")
+      : (process.env.NEXT_PUBLIC_CLUSTER_HOST || "100.57.92.214.nip.io:31516");
 
     let wsUrl = process.env.NEXT_PUBLIC_RUNNER_WS_URL;
     if (!wsUrl) {

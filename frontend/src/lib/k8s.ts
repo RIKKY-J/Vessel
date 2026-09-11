@@ -76,11 +76,11 @@ spec:
               mountPath: /workspace
           resources:
             requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
               cpu: "500m"
               memory: "512Mi"
-            limits:
-              cpu: "1"
-              memory: "1Gi"
 ---
 apiVersion: v1
 kind: Service
@@ -132,7 +132,7 @@ spec:
             name: service_name
             port:
               number: 3000
-  - host: service_name.peetcode.com
+  - host: service_name.100.57.92.214.nip.io
     http:
       paths:
       - path: /
@@ -142,7 +142,27 @@ spec:
             name: service_name
             port:
               number: 3001
-  - host: service_name.autogpt-cloud.com
+  - host: service_name-app.100.57.92.214.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: service_name
+            port:
+              number: 3000
+  - host: service_name.3.88.46.132.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: service_name
+            port:
+              number: 3001
+  - host: service_name-app.3.88.46.132.nip.io
     http:
       paths:
       - path: /

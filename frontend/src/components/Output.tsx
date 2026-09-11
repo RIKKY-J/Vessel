@@ -13,12 +13,12 @@ export default function Output({ replId }: OutputProps) {
   
   // Choose HTTPS port 31754 if on HTTPS, or HTTP port 31516
   const clusterHost = isHttps
-    ? (process.env.NEXT_PUBLIC_CLUSTER_HTTPS_HOST || "52.90.6.151.nip.io:31754")
-    : (process.env.NEXT_PUBLIC_CLUSTER_HOST || "52.90.6.151.nip.io:31516");
+    ? (process.env.NEXT_PUBLIC_CLUSTER_HTTPS_HOST || "100.57.92.214.nip.io:31754")
+    : (process.env.NEXT_PUBLIC_CLUSTER_HOST || "100.57.92.214.nip.io:31516");
 
   const protocol = isHttps ? "https:" : "http:";
   const instanceUri = `${protocol}//${replId}-app.${clusterHost}`;
-  const directHttpUri = `http://${replId}-app.52.90.6.151.nip.io:31516`;
+  const directHttpUri = `http://${replId}-app.${process.env.NEXT_PUBLIC_CLUSTER_HOST || "100.57.92.214.nip.io:31516"}`;
 
   const refreshIframe = () => {
     setIframeKey((prev) => prev + 1);
