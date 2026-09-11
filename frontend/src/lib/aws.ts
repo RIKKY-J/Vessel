@@ -88,3 +88,42 @@ export async function saveToS3(key: string, filePath: string, content: string): 
   await s3.putObject(params).promise();
 }
 
+export interface S3ProjectInfo {
+  id: string;
+  name: string;
+  language: string;
+}
+
+export async function listS3Projects(): Promise<S3ProjectInfo[]> {
+  const s3 = getS3Client();
+  const bucket = process.env.S3_BUCKET ?? "";
+
+  try {
+    const data = await s3
+      .listObjectsV2({
+        Bucket: bucket,
+        Prefix: "code/",
+        Delimiter: "/",
+      })
+      .promise();
+
+    const prefixes = data.CommonPrefixes || [];
+    const projects: S3ProjectInfo[] = prefixes
+      .map((p) => {
+        const id = (p.Prefix || "").replace(/^code\//, "").replace(/\/+$/, "");
+        return {
+          id,
+          name: id,
+          language: id.toLowerCase().includes("python") ? "python" : "node-js",
+        };
+      })
+      .filter((p) => Boolean(p.id));
+
+    return projects.reverse();
+  } catch (error) {
+    console.error("Error listing S3 projects:", error);
+    return [];
+  }
+}
+
+

@@ -2,232 +2,315 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import axios from "axios";
-import { RefreshCw, ArrowRight, Sparkles, Cpu, Terminal, Code2, FolderGit2, CheckCircle2 } from "lucide-react";
+import Link from "next/link";
+import {
+  ArrowRight,
+  Sparkles,
+  Terminal,
+  Code2,
+  ExternalLink,
+  Layers,
+  Zap,
+  Users,
+  Send,
+  CheckCircle2,
+} from "lucide-react";
 
-const SLUG_WORDS = [
-  "swift", "cosmic", "cyber", "pixel", "quantum", "turbo", "hyper",
-  "cloud", "runner", "orbit", "prism", "shadow", "neon", "flux",
-  "python", "node", "nexus", "echo", "vertex", "pulse"
-];
-
-function getRandomSlug() {
-  let parts = [];
-  for (let i = 0; i < 3; i++) {
-    parts.push(SLUG_WORDS[Math.floor(Math.random() * SLUG_WORDS.length)]);
-  }
-  return parts.join("-");
-}
-
-export default function LandingPage() {
+export default function HomeLandingPage() {
   const router = useRouter();
-  const [language, setLanguage] = useState("node-js");
-  const [replId, setReplId] = useState(() => getRandomSlug());
-  const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isExisting, setIsExisting] = useState(false);
-  const [checkingExisting, setCheckingExisting] = useState(false);
+  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
 
-  // Check if replId already exists in S3
   useEffect(() => {
-    const trimmed = replId.trim();
-    if (!trimmed) {
-      setIsExisting(false);
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setCheckingExisting(true);
-      axios
-        .get(`/api/project/check?replId=${encodeURIComponent(trimmed)}`)
-        .then((res) => {
-          if (res.data?.exists) {
-            setIsExisting(true);
-            if (res.data.language) {
-              setLanguage(res.data.language);
-            }
-          } else {
-            setIsExisting(false);
-          }
-        })
-        .catch(() => {
-          setIsExisting(false);
-        })
-        .finally(() => {
-          setCheckingExisting(false);
-        });
-    }, 400);
-
-    return () => clearTimeout(timer);
-  }, [replId]);
-
-  const handleStartCoding = async () => {
-    if (!replId.trim()) {
-      setErrorMessage("Please specify or generate a REPL ID");
-      return;
-    }
-
-    setLoading(true);
-    setErrorMessage(null);
-
     try {
-      const res = await axios.post("/api/project", { replId: replId.trim(), language });
-      const finalLang = res.data?.language || language;
-      router.push(`/coding?replId=${encodeURIComponent(replId.trim())}&lang=${encodeURIComponent(finalLang)}`);
-    } catch (err: any) {
-      console.error("Error creating project:", err);
-      setErrorMessage(err?.response?.data?.error || "Failed to start workspace. Please check configuration.");
-      setLoading(false);
+      const stored = localStorage.getItem("vessel_user");
+      if (stored) {
+        setUser(JSON.parse(stored));
+      }
+    } catch {}
+  }, []);
+
+  const handleOpenWorkspace = () => {
+    if (user) {
+      router.push("/projects");
+    } else {
+      router.push("/signin");
     }
   };
 
+  const featurePoints = [
+    {
+      num: "01",
+      title: "Cloud-based Development Environment",
+      desc: "A complete browser-native coding environment with Monaco editor, container filesystem, interactive terminal, and runtime—no local setup needed.",
+    },
+    {
+      num: "02",
+      title: "Instant Code Execution & Preview",
+      desc: "Run your code immediately and get an in-IDE live preview of web applications with instant sandbox synchronization.",
+    },
+    {
+      num: "03",
+      title: "Built-in Terminal & Development Tools",
+      desc: "Integrated terminal allows developers to install dependencies, execute bash commands, run background servers, and manage Git workflows.",
+    },
+    {
+      num: "04",
+      title: "Real-time Collaboration",
+      desc: "Multiple developers can collaborate and code simultaneously in the cloud, making it ideal for team projects, education, and hackathons.",
+    },
+    {
+      num: "05",
+      title: "Easy Deployment & Sharing",
+      desc: "Projects can be shared through a direct link and deployed without requiring developers to configure their own server infrastructure.",
+    },
+  ];
+
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden bg-[#0B0D11]">
-      <div className="w-full max-w-xl z-10">
-        {/* Header */}
-        <div className="text-center mb-8">
-          {/* Logo + App Name */}
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <img src="/logo.png" alt="Vessel Logo" className="w-12 h-12 object-contain" />
-            <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-white">
-              Vessel
-            </h1>
-          </div>
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#12151B] border border-[#232936] text-white text-xs font-medium mb-3 shadow-sm">
-            <Sparkles className="w-3.5 h-3.5 text-[#E73F1E]" /> Cloud IDE
-          </div>
-          <p className="text-slate-300 text-sm sm:text-base max-w-md mx-auto">
-            Spin up isolated Kubernetes development sandboxes with real-time Monaco editor, bash terminal, and live preview.
-          </p>
+    <div className="min-h-screen w-full bg-[#0B0D11] text-white flex flex-col font-sans select-none overflow-x-hidden">
+      {/* Top Navigation Bar */}
+      <header className="h-16 border-b border-[#232936] px-6 sm:px-12 flex items-center justify-between sticky top-0 bg-[#0B0D11]/95 z-50">
+        <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-2 group cursor-pointer">
+            <span className="w-8 h-8 rounded-lg bg-[#181C24] border border-[#232936] flex items-center justify-center font-mono text-xs text-[#E73F1E] font-bold group-hover:border-[#E73F1E] transition">
+              &lt;/&gt;
+            </span>
+            <span className="font-semibold text-sm tracking-wide text-white font-mono">
+              vessel.editor
+            </span>
+          </Link>
         </div>
 
-        {/* Main Card */}
-        <div className="bg-[#12151B] border border-[#232936] rounded-2xl p-6 sm:p-8 shadow-2xl">
-          {/* REPL Identifier */}
-          <div className="mb-5">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
-              Workspace Identifier (Repl ID)
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={replId}
-                onChange={(e) => setReplId(e.target.value)}
-                placeholder="e.g. swift-cyber-orbit"
-                className="flex-1 bg-[#181C24] border border-[#232936] focus:border-[#E73F1E] focus:ring-1 focus:ring-[#E73F1E] rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 transition outline-none"
-              />
-              <button
-                type="button"
-                onClick={() => setReplId(getRandomSlug())}
-                title="Generate new ID"
-                className="px-3.5 py-2.5 bg-[#181C24] hover:bg-[#232936] text-white rounded-xl border border-[#232936] hover:border-[#E73F1E] transition flex items-center justify-center cursor-pointer"
-              >
-                <RefreshCw className="w-4 h-4 text-slate-300 hover:text-white" />
-              </button>
-            </div>
-            {isExisting && (
-              <div className="mt-2.5 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#E73F1E]/15 border border-[#E73F1E]/40 text-white text-xs font-medium">
-                <FolderGit2 className="w-3.5 h-3.5 text-[#E73F1E] shrink-0" />
-                <span>Existing project found in S3 — your saved workspace files will be restored.</span>
-              </div>
-            )}
-          </div>
-
-          {/* Environment / Language selection */}
-          <div className="mb-6">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
-              Runtime Template
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setLanguage("node-js")}
-                className={`flex items-center gap-3 p-3.5 rounded-xl border transition text-left cursor-pointer ${
-                  language === "node-js"
-                    ? "bg-[#181C24] border-[#E73F1E] text-white ring-1 ring-[#E73F1E]"
-                    : "bg-[#181C24]/60 border-[#232936] text-slate-300 hover:border-slate-500"
-                }`}
-              >
-                <div className="p-2 rounded-lg bg-[#E73F1E]/20 text-[#E73F1E]">
-                  <Code2 className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="font-semibold text-sm text-white">Node.js</div>
-                  <div className="text-xs text-slate-400">v20 Runtime</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setLanguage("python")}
-                className={`flex items-center gap-3 p-3.5 rounded-xl border transition text-left cursor-pointer ${
-                  language === "python"
-                    ? "bg-[#181C24] border-[#E73F1E] text-white ring-1 ring-[#E73F1E]"
-                    : "bg-[#181C24]/60 border-[#232936] text-slate-300 hover:border-slate-500"
-                }`}
-              >
-                <div className="p-2 rounded-lg bg-[#E73F1E]/20 text-[#E73F1E]">
-                  <Terminal className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="font-semibold text-sm text-white">Python</div>
-                  <div className="text-xs text-slate-400">v3 Runtime</div>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          {errorMessage && (
-            <div className="mb-4 p-3 rounded-lg bg-red-500/15 border border-red-500/30 text-red-300 text-xs">
-              {errorMessage}
-            </div>
+        <div className="flex items-center gap-4 sm:gap-6">
+          {user ? (
+            <Link
+              href="/projects"
+              className="text-xs text-slate-300 hover:text-white transition font-mono"
+            >
+              Dashboard ({user.name})
+            </Link>
+          ) : (
+            <Link
+              href="/signin"
+              className="text-xs text-slate-300 hover:text-white transition font-mono"
+            >
+              Sign in
+            </Link>
           )}
 
-          {/* Launch button */}
           <button
-            type="button"
-            disabled={loading}
-            onClick={handleStartCoding}
-            className="w-full py-3 px-5 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 bg-[#E73F1E] hover:bg-[#ff4d29] shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-95"
+            onClick={handleOpenWorkspace}
+            className="h-9 px-4 rounded-xl bg-[#E73F1E] hover:bg-[#ff4d29] text-white text-xs font-bold transition-all shadow-md active:scale-95 flex items-center gap-1.5 cursor-pointer border border-[#E73F1E]"
           >
-            {loading ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                {isExisting ? "Resuming Workspace..." : "Provisioning Sandbox..."}
-              </>
-            ) : isExisting ? (
-              <>
-                Resume Saved Project
-                <ArrowRight className="w-4 h-4 text-white" />
-              </>
-            ) : (
-              <>
-                Launch Environment
-                <ArrowRight className="w-4 h-4 text-white" />
-              </>
-            )}
+            <span>Open workspace</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
+      </header>
 
-        {/* Feature badges */}
-        <div className="grid grid-cols-3 gap-4 mt-8 text-center">
-          <div className="p-3 rounded-xl bg-[#12151B] border border-[#232936]">
-            <Cpu className="w-4 h-4 text-[#E73F1E] mx-auto mb-1" />
-            <div className="text-xs font-medium text-white">Isolated Pods</div>
-            <div className="text-[10px] text-slate-400">Dedicated K8s Container</div>
+      {/* Hero Section */}
+      <main className="flex-1 max-w-6xl w-full mx-auto px-6 sm:px-12 pt-16 sm:pt-24 pb-20 flex flex-col justify-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+          {/* Left Column: Headline & CTA */}
+          <div className="lg:col-span-6 flex flex-col items-start">
+            {/* Eyebrow badge */}
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#181C24] border border-[#232936] text-[11px] font-mono text-slate-300 uppercase tracking-wider mb-6">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#E73F1E] animate-pulse" />
+              <span>Browser-native development desk</span>
+            </div>
+
+            {/* Big Headline */}
+            <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-white leading-[1.05] mb-6">
+              Make the <br />
+              <span className="text-[#E73F1E]">next</span> <br />
+              thing.
+            </h1>
+
+            {/* Subtitle */}
+            <p className="text-slate-400 text-sm sm:text-base leading-relaxed max-w-md mb-8">
+              A compact coding workspace for learning in public, testing a thought, and shipping the small idea that has been waiting.
+            </p>
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+              <button
+                onClick={handleOpenWorkspace}
+                className="h-12 px-6 rounded-xl bg-[#E73F1E] hover:bg-[#ff4d29] text-white text-sm font-bold transition-all shadow-lg active:scale-95 flex items-center gap-2 cursor-pointer border border-[#E73F1E]"
+              >
+                <span>Start building</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+
+              <div className="h-12 px-4 rounded-xl bg-[#12151B] border border-[#232936] text-xs font-mono text-slate-400 flex items-center gap-2 select-none">
+                <span className="bg-[#181C24] border border-[#232936] px-1.5 py-0.5 rounded text-[11px] text-slate-300">⌘</span>
+                <span className="bg-[#181C24] border border-[#232936] px-1.5 py-0.5 rounded text-[11px] text-slate-300">K</span>
+                <span>command palette</span>
+              </div>
+            </div>
           </div>
-          <div className="p-3 rounded-xl bg-[#12151B] border border-[#232936]">
-            <Terminal className="w-4 h-4 text-[#E73F1E] mx-auto mb-1" />
-            <div className="text-xs font-medium text-white">Live PTY Terminal</div>
-            <div className="text-[10px] text-slate-400">Low-latency WebSockets</div>
-          </div>
-          <div className="p-3 rounded-xl bg-[#12151B] border border-[#232936]">
-            <Code2 className="w-4 h-4 text-[#E73F1E] mx-auto mb-1" />
-            <div className="text-xs font-medium text-white">Monaco Engine</div>
-            <div className="text-[10px] text-slate-400">VS Code editing experience</div>
+
+          {/* Right Column: Code Window Mockup */}
+          <div className="lg:col-span-6 relative">
+            <div className="w-full bg-[#12151B] border border-[#232936] rounded-2xl shadow-2xl overflow-hidden font-mono text-xs">
+              {/* Window Header */}
+              <div className="px-4 py-3 bg-[#181C24] border-b border-[#232936] flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#27c93f]" />
+                </div>
+                <div className="text-[11px] text-slate-400 tracking-wide">
+                  main.ts &mdash; vessel.editor
+                </div>
+                <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
+                  saved
+                </div>
+              </div>
+
+              {/* Code Contents with Syntax Highlighting */}
+              <div className="p-5 overflow-x-auto leading-relaxed text-slate-300 space-y-1 bg-[#0B0D11]">
+                <div className="flex">
+                  <span className="w-7 text-slate-600 select-none">1</span>
+                  <span>
+                    <span className="text-purple-400">import</span> &#123;{" "}
+                    <span className="text-cyan-400">createApp</span> &#125;{" "}
+                    <span className="text-purple-400">from</span>{" "}
+                    <span className="text-emerald-300">&quot;./app&quot;</span>;
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-7 text-slate-600 select-none">2</span>
+                  <span></span>
+                </div>
+                <div className="flex">
+                  <span className="w-7 text-slate-600 select-none">3</span>
+                  <span>
+                    <span className="text-purple-400">const</span> app ={" "}
+                    <span className="text-cyan-400">createApp</span>(&#123;
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-7 text-slate-600 select-none">4</span>
+                  <span className="pl-4">
+                    name: <span className="text-emerald-300">&quot;vessel-editor&quot;</span>,
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-7 text-slate-600 select-none">5</span>
+                  <span className="pl-4">
+                    port: <span className="text-amber-400">3000</span>,
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-7 text-slate-600 select-none">6</span>
+                  <span>&#125;);</span>
+                </div>
+                <div className="flex">
+                  <span className="w-7 text-slate-600 select-none">7</span>
+                  <span></span>
+                </div>
+                <div className="flex">
+                  <span className="w-7 text-slate-600 select-none">8</span>
+                  <span>
+                    app.<span className="text-blue-400">listen</span>(() =&gt; &#123;
+                  </span>
+                </div>
+                <div className="flex items-center">
+                  <span className="w-7 text-slate-600 select-none">9</span>
+                  <span className="pl-4">
+                    console.<span className="text-blue-400">log</span>(
+                    <span className="text-emerald-300">&quot;Ready.&quot;</span>);
+                    <span className="inline-block w-2 h-4 bg-[#E73F1E] ml-1 align-middle animate-pulse" />
+                  </span>
+                </div>
+                <div className="flex">
+                  <span className="w-7 text-slate-600 select-none">10</span>
+                  <span>&#125;);</span>
+                </div>
+              </div>
+
+              {/* Window Footer Status Bar */}
+              <div className="px-4 py-2 bg-[#12151B] border-t border-[#232936] flex items-center justify-between text-[11px] text-slate-500">
+                <div className="flex items-center gap-3">
+                  <span>Ln 9, Col 42</span>
+                  <span>UTF-8</span>
+                  <span>TypeScript</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  <span className="text-emerald-400 font-medium">localhost:3000</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Floating Instant Preview Badge */}
+            <div className="absolute -bottom-4 left-6 bg-[#181C24] border border-[#232936] text-slate-200 text-xs font-mono px-3 py-1.5 rounded-full shadow-xl flex items-center gap-2">
+              <span className="text-emerald-400 font-bold">&#10003;</span>
+              <span>instant preview</span>
+            </div>
           </div>
         </div>
-      </div>
-    </main>
+      </main>
+
+      {/* Numbered Feature Cards Section (Screenshot 2) */}
+      <section className="border-t border-[#232936] bg-[#0B0D11] py-16 px-6 sm:px-12">
+        <div className="max-w-6xl w-full mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {featurePoints.map((feat) => (
+              <div
+                key={feat.num}
+                className="bg-[#12151B] border border-[#232936] hover:border-[#E73F1E]/50 rounded-2xl p-6 transition-all duration-200 flex flex-col justify-between group shadow-sm hover:shadow-md"
+              >
+                <div>
+                  <span className="font-mono text-xs font-bold text-[#E73F1E] tracking-widest block mb-4">
+                    {feat.num}
+                  </span>
+                  <h3 className="text-base font-bold text-white mb-2.5 group-hover:text-slate-100 transition">
+                    {feat.title}
+                  </h3>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    {feat.desc}
+                  </p>
+                </div>
+              </div>
+            ))}
+
+            {/* Quick CTA Card */}
+            <div
+              onClick={handleOpenWorkspace}
+              className="bg-[#181C24] border border-[#E73F1E]/40 hover:border-[#E73F1E] rounded-2xl p-6 transition-all duration-200 flex flex-col justify-between cursor-pointer group shadow-sm hover:shadow-md"
+            >
+              <div>
+                <span className="font-mono text-xs font-bold text-[#E73F1E] tracking-widest block mb-4">
+                  06
+                </span>
+                <h3 className="text-base font-bold text-white mb-2.5">
+                  Ready to code?
+                </h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Start building now with zero installation. Run Node.js and Python projects in your browser.
+                </p>
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-[#232936] flex items-center justify-between text-xs font-bold text-[#E73F1E]">
+                <span>Launch workspace</span>
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-[#232936] py-8 px-6 sm:px-12 bg-[#0B0D11]">
+        <div className="max-w-6xl w-full mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-slate-500">
+          <div>
+            vessel.editor / 2026
+          </div>
+          <div>
+            Made for the next commit.
+          </div>
+        </div>
+      </footer>
+    </div>
   );
 }

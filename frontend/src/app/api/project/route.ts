@@ -1,5 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { copyS3Folder, checkS3FolderNotEmpty, normalizeLanguage } from "@/lib/aws";
+import { copyS3Folder, checkS3FolderNotEmpty, normalizeLanguage, listS3Projects } from "@/lib/aws";
+
+export async function GET() {
+  try {
+    const projects = await listS3Projects();
+    return NextResponse.json({ projects }, { status: 200 });
+  } catch (error: any) {
+    console.error("Failed to list projects from S3:", error);
+    return NextResponse.json(
+      { error: error?.message || "Failed to list projects", projects: [] },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,3 +53,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+

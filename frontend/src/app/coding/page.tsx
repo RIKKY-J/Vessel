@@ -254,9 +254,9 @@ function WorkspaceInner() {
       console.warn("Error calling /api/stop:", e);
     }
 
-    setStopMessage("Workspace saved and pod terminated. Redirecting to home...");
+    setStopMessage("Workspace saved and pod terminated. Redirecting to workspaces...");
     setTimeout(() => {
-      router.push("/?saved=" + encodeURIComponent(replId));
+      router.push("/projects");
     }, 500);
   };
 
